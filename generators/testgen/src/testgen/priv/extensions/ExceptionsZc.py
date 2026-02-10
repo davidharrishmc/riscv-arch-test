@@ -1,5 +1,5 @@
 ##################################
-# priv/extensions/exceptionsZc.py
+# priv/extensions/ExceptionsZc.py
 #
 # ExceptionsZc extension exception test generator.
 # jgong@hmc.edu Jan 2026
