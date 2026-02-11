@@ -1233,9 +1233,8 @@ fault_addr_adj_\__MODE__\()tval:
         LI(     T3, RVMODEL_ACCESS_FAULT_ADDRESS)         // Load fault address
         andi    T6, T2, ~0x7F                     // Mask bottom 7 bits of mtval
         andi    T3, T3, ~0x7F                     // Mask of 7 bits of fault address
-        bne     T6, T3, vmem_adj_\__MODE__\()tval // Continue with normal checks if not in fault range
-        li      T3, 0                             // Set adjustment to 0
-        j       sv_\__MODE__\()tval
+        bne     T6, T3, vmem_adj_\__MODE__\()tval // Continue with normal checks if not in fault range                          // Set adjustment to 0
+        j       adj_\__MODE__\()tval
 
 vmem_adj_\__MODE__\()tval:         /* T4 still points to sv area of trapping mode */
         LREG    T3, vmem_bgn_off(T4)            // fetch sig_begin addr
