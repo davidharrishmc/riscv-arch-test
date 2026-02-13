@@ -13,6 +13,170 @@ from testgen.data.state import TestData
 from testgen.priv.registry import add_priv_test_generator
 
 
+def _add_load_test(
+    ops: list[str],
+    offset: int,
+    test_data: TestData,
+    coverpoint: str,
+    covergroup: str,
+    addr_reg: int,
+    base_reg: int,
+    check_reg: int,
+    fp_reg: int,
+) -> list[str]:
+    all_lines = []
+    for op in ops:
+        is_sp = op.endswith("sp")
+        t_lines = []
+        suffix = "_sp" if is_sp else ""
+        t_lines.append(test_data.add_testcase(coverpoint, f"{op.lower()}{suffix}_off{offset}", covergroup))
+
+        # Load address and apply offset
+        if is_sp:
+            t_lines.append(f"    mv x{base_reg}, sp")  # Save sp
+            t_lines.append("    LA(sp, scratch)")
+            t_lines.append(f"    addi sp, sp, {offset}")
+        else:
+            t_lines.append(f"    LA(x{addr_reg}, scratch)")
+            t_lines.append(f"    addi x{addr_reg}, x{addr_reg}, {offset}")
+
+        # Perform load
+        reg_str = f"f{fp_reg}" if "f" in op.lower() else f"x{check_reg}"
+        sig_reg = fp_reg if "f" in op.lower() else check_reg
+
+        if is_sp:
+            t_lines.append(f"    {op} {reg_str}, 0(sp)")
+            t_lines.append(f"    mv sp, x{base_reg}")  # Restore sp immediately
+        else:
+            t_lines.append(f"    {op} {reg_str}, 0(x{addr_reg})")
+
+        t_lines.append(write_sigupd(sig_reg, test_data, sig_type="float"))
+        all_lines.extend(t_lines)
+    return all_lines
+
+
+def _add_store_test(
+    ops: list[str],
+    offset: int,
+    test_data: TestData,
+    coverpoint: str,
+    covergroup: str,
+    addr_reg: int,
+    base_reg: int,
+    check_reg: int,
+    fp_reg: int,
+) -> list[str]:
+    all_lines = []
+    for op in ops:
+        is_sp = op.endswith("sp")
+        t_lines = []
+        suffix = "_sp" if is_sp else ""
+        t_lines.append(test_data.add_testcase(coverpoint, f"{op.lower()}{suffix}_off{offset}", covergroup))
+
+        # Load address and apply offset
+        if is_sp:
+            t_lines.append(f"    mv x{base_reg}, sp")  # Save sp
+            t_lines.append("    LA(sp, scratch)")
+            t_lines.append(f"    addi sp, sp, {offset}")
+        else:
+            t_lines.append(f"    LA(x{addr_reg}, scratch)")
+            t_lines.append(f"    addi x{addr_reg}, x{addr_reg}, {offset}")
+
+        # Perform store
+        reg_str = f"f{fp_reg}" if "f" in op.lower() else f"x{check_reg}"
+
+        if is_sp:
+            t_lines.append(f"    {op} {reg_str}, 0(sp)")
+            t_lines.append(f"    mv sp, x{base_reg}")  # Restore sp immediately
+        else:
+            t_lines.append(f"    {op} {reg_str}, 0(x{addr_reg})")
+
+        t_lines.append(f"    li x{check_reg}, 0x{offset:08x}")  # Use offset for signature
+        t_lines.append(write_sigupd(check_reg, test_data))
+        all_lines.extend(t_lines)
+    return all_lines
+
+
+def _add_load_fault(
+    ops: list[str],
+    test_data: TestData,
+    coverpoint: str,
+    covergroup: str,
+    addr_reg: int,
+    base_reg: int,
+    check_reg: int,
+    fp_reg: int,
+) -> list[str]:
+    all_lines = []
+    for op in ops:
+        is_sp = op.endswith("sp")
+        t_lines = []
+        suffix = "_sp" if is_sp else ""
+        test_label = f"{op.lower()}{suffix}_fault"
+
+        # 8-byte alignment
+        t_lines.append("    .align 3")
+        t_lines.append(test_data.add_testcase(coverpoint, test_label, covergroup))
+
+        t_lines.append(f"    li x{addr_reg}, RVMODEL_ACCESS_FAULT_ADDRESS")
+
+        reg_str = f"f{fp_reg}" if "f" in op.lower() else f"x{check_reg}"
+
+        if is_sp:
+            t_lines.append(f"    mv x{base_reg}, sp")
+            t_lines.append(f"    mv sp, x{addr_reg}")
+            t_lines.append(f"    {op} {reg_str}, 0(sp)")
+            t_lines.append(f"    mv sp, x{base_reg}")
+        else:
+            t_lines.append(f"    {op} {reg_str}, 0(x{addr_reg})")
+
+        t_lines.append("    nop")
+        t_lines.append("    nop")
+
+        all_lines.extend(t_lines)
+    return all_lines
+
+
+def _add_store_fault(
+    ops: list[str],
+    test_data: TestData,
+    coverpoint: str,
+    covergroup: str,
+    addr_reg: int,
+    base_reg: int,
+    check_reg: int,
+    fp_reg: int,
+) -> list[str]:
+    all_lines = []
+    for op in ops:
+        is_sp = op.endswith("sp")
+        t_lines = []
+        suffix = "_sp" if is_sp else ""
+        test_label = f"{op.lower()}{suffix}_fault"
+
+        # 8-byte alignment
+        t_lines.append("    .align 3")
+        t_lines.append(test_data.add_testcase(coverpoint, test_label, covergroup))
+
+        t_lines.append(f"    li x{addr_reg}, RVMODEL_ACCESS_FAULT_ADDRESS")
+
+        reg_str = f"f{fp_reg}" if "f" in op.lower() else f"x{check_reg}"
+
+        if is_sp:
+            t_lines.append(f"    mv x{base_reg}, sp")
+            t_lines.append(f"    mv sp, x{addr_reg}")
+            t_lines.append(f"    {op} {reg_str}, 0(sp)")
+            t_lines.append(f"    mv sp, x{base_reg}")
+        else:
+            t_lines.append(f"    {op} {reg_str}, 0(x{addr_reg})")
+
+        t_lines.append("    nop")
+        t_lines.append("    nop")
+
+        all_lines.extend(t_lines)
+    return all_lines
+
+
 def _generate_load_address_misaligned_tests(test_data: TestData) -> list[str]:
     covergroup, coverpoint = "ExceptionsZc_cg", "cp_load_address_misaligned"
     addr_reg, base_reg, check_reg = test_data.int_regs.get_registers(
@@ -28,59 +192,52 @@ def _generate_load_address_misaligned_tests(test_data: TestData) -> list[str]:
     for offset in range(8):
         lines.append(f"\n# Offset {offset} (LSBs: {offset:03b})")
 
-        def add_l_test(ops: list[str], offset: int = offset) -> list[str]:
-            all_lines = []
-            for op in ops:
-                is_sp = op.endswith("sp")
-                t_lines = []
-                suffix = "_sp" if is_sp else ""
-                t_lines.append(test_data.add_testcase(coverpoint, f"{op.lower()}{suffix}_off{offset}", covergroup))
-
-                # Load address and apply offset
-                if is_sp:
-                    t_lines.append(f"    mv x{base_reg}, sp")  # Save sp
-                    t_lines.append("    LA(sp, scratch)")
-                    if offset > 0:
-                        t_lines.append(f"    addi sp, sp, {offset}")
-                else:
-                    t_lines.append(f"    LA(x{addr_reg}, scratch)")
-                    if offset > 0:
-                        t_lines.append(f"    addi x{addr_reg}, x{addr_reg}, {offset}")
-
-                # Perform load
-                reg_str = f"f{fp_reg}" if "f" in op.lower() else f"x{check_reg}"
-                sig_reg = fp_reg if "f" in op.lower() else check_reg
-
-                if is_sp:
-                    t_lines.append(f"    {op} {reg_str}, 0(sp)")
-                    t_lines.append(f"    mv sp, x{base_reg}")  # Restore sp immediately
-                else:
-                    t_lines.append(f"    {op} {reg_str}, 0(x{addr_reg})")
-
-                t_lines.append(write_sigupd(sig_reg, test_data, sig_type="float"))
-                all_lines.extend(t_lines)
-            return all_lines
-
         # Zca
         base_ops = ["c.lw", "c.lwsp"]
-        lines.extend(add_l_test(base_ops))
+        lines.extend(
+            _add_load_test(base_ops, offset, test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg)
+        )
         lines.append("#if __riscv_xlen == 64")
-        lines.extend(add_l_test(["c.ld", "c.ldsp"]))
+        lines.extend(
+            _add_load_test(
+                ["c.ld", "c.ldsp"], offset, test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg
+            )
+        )
         lines.append("#endif")
 
         # Zcb
         lines.append("#ifdef ZCB_SUPPORTED")
-        lines.extend(add_l_test(["c.lh", "c.lhu", "c.lbu"]))
+        lines.extend(
+            _add_load_test(
+                ["c.lh", "c.lhu", "c.lbu"],
+                offset,
+                test_data,
+                coverpoint,
+                covergroup,
+                addr_reg,
+                base_reg,
+                check_reg,
+                fp_reg,
+            )
+        )
         lines.append("#endif")
 
         # Zcf
         lines.append("#if defined(ZCF_SUPPORTED)")
-        lines.extend(add_l_test(["c.flw", "c.flwsp"]))
+        lines.extend(
+            _add_load_test(
+                ["c.flw", "c.flwsp"], offset, test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg
+            )
+        )
         lines.append("#endif")
 
         # Zcd
         lines.append("#ifdef ZCD_SUPPORTED")
-        lines.extend(add_l_test(["c.fld", "c.fldsp"]))
+        lines.extend(
+            _add_load_test(
+                ["c.fld", "c.fldsp"], offset, test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg
+            )
+        )
         lines.append("#endif")
 
     test_data.int_regs.return_registers([addr_reg, base_reg, check_reg])
@@ -103,57 +260,44 @@ def _generate_store_address_misaligned_tests(test_data: TestData) -> list[str]:
     for offset in range(8):
         lines.append(f"\n# Offset {offset} (LSBs: {offset:03b})")
 
-        def add_s_test(ops: list[str], offset: int = offset) -> list[str]:
-            all_lines = []
-            for op in ops:
-                is_sp = op.endswith("sp")
-                t_lines = []
-                suffix = "_sp" if is_sp else ""
-                t_lines.append(test_data.add_testcase(coverpoint, f"{op.lower()}{suffix}_off{offset}", covergroup))
-
-                # Load address and apply offset
-                if is_sp:
-                    t_lines.append(f"    mv x{base_reg}, sp")  # Save sp
-                    t_lines.append("    LA(sp, scratch)")
-                    t_lines.append(f"    addi sp, sp, {offset}")
-                else:
-                    t_lines.append(f"    LA(x{addr_reg}, scratch)")
-                    t_lines.append(f"    addi x{addr_reg}, x{addr_reg}, {offset}")
-
-                # Perform store
-                reg_str = f"f{fp_reg}" if "f" in op.lower() else f"x{check_reg}"
-
-                if is_sp:
-                    t_lines.append(f"    {op} {reg_str}, 0(sp)")
-                    t_lines.append(f"    mv sp, x{base_reg}")  # Restore sp immediately
-                else:
-                    t_lines.append(f"    {op} {reg_str}, 0(x{addr_reg})")
-
-                t_lines.append(f"    li x{check_reg}, 0x{offset:08x}")  # Use offset for signature
-                t_lines.append(write_sigupd(check_reg, test_data))
-                all_lines.extend(t_lines)
-            return all_lines
-
         # Zca
         base_ops = ["c.sw", "c.swsp"]
-        lines.extend(add_s_test(base_ops))
+        lines.extend(
+            _add_store_test(base_ops, offset, test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg)
+        )
         lines.append("#if __riscv_xlen == 64")
-        lines.extend(add_s_test(["c.sd", "c.sdsp"]))
+        lines.extend(
+            _add_store_test(
+                ["c.sd", "c.sdsp"], offset, test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg
+            )
+        )
         lines.append("#endif")
 
         # Zcb
         lines.append("#ifdef ZCB_SUPPORTED")
-        lines.extend(add_s_test(["c.sb", "c.sh"]))
+        lines.extend(
+            _add_store_test(
+                ["c.sb", "c.sh"], offset, test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg
+            )
+        )
         lines.append("#endif")
 
         # Zcf
         lines.append("#if defined(ZCF_SUPPORTED)")
-        lines.extend(add_s_test(["c.fsw", "c.fswsp"]))
+        lines.extend(
+            _add_store_test(
+                ["c.fsw", "c.fswsp"], offset, test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg
+            )
+        )
         lines.append("#endif")
 
         # Zcd
         lines.append("#ifdef ZCD_SUPPORTED")
-        lines.extend(add_s_test(["c.fsd", "c.fsdsp"]))
+        lines.extend(
+            _add_store_test(
+                ["c.fsd", "c.fsdsp"], offset, test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg
+            )
+        )
         lines.append("#endif")
 
     test_data.int_regs.return_registers([addr_reg, base_reg, check_reg])
@@ -173,56 +317,36 @@ def _generate_load_access_fault_tests(test_data: TestData) -> list[str]:
 
     lines = [comment_banner(coverpoint, "Load Access Fault")]
 
-    def add_l_fault(ops: list[str]) -> list[str]:
-        all_lines = []
-        for op in ops:
-            is_sp = op.endswith("sp")
-            t_lines = []
-            suffix = "_sp" if is_sp else ""
-            test_label = f"{op.lower()}{suffix}_fault"
-
-            # 8-byte alignment
-            t_lines.append("    .align 3")
-            t_lines.append(test_data.add_testcase(coverpoint, test_label, covergroup))
-
-            t_lines.append(f"    li x{addr_reg}, RVMODEL_ACCESS_FAULT_ADDRESS")
-
-            reg_str = f"f{fp_reg}" if "f" in op.lower() else f"x{check_reg}"
-
-            if is_sp:
-                t_lines.append(f"    mv x{base_reg}, sp")
-                t_lines.append(f"    mv sp, x{addr_reg}")
-                t_lines.append(f"    {op} {reg_str}, 0(sp)")
-                t_lines.append(f"    mv sp, x{base_reg}")
-            else:
-                t_lines.append(f"    {op} {reg_str}, 0(x{addr_reg})")
-
-            t_lines.append("    nop")
-            t_lines.append("    nop")
-
-            all_lines.extend(t_lines)
-        return all_lines
-
     # Zca
     base_ops = ["c.lw", "c.lwsp"]
-    lines.extend(add_l_fault(base_ops))
+    lines.extend(_add_load_fault(base_ops, test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg))
     lines.append("#if __riscv_xlen == 64")
-    lines.extend(add_l_fault(["c.ld", "c.ldsp"]))
+    lines.extend(
+        _add_load_fault(["c.ld", "c.ldsp"], test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg)
+    )
     lines.append("#endif")
 
     # Zcb
     lines.append("#ifdef ZCB_SUPPORTED")
-    lines.extend(add_l_fault(["c.lh", "c.lhu", "c.lbu"]))
+    lines.extend(
+        _add_load_fault(
+            ["c.lh", "c.lhu", "c.lbu"], test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg
+        )
+    )
     lines.append("#endif")
 
     # Zcf
     lines.append("#if defined(ZCF_SUPPORTED)")
-    lines.extend(add_l_fault(["c.flw", "c.flwsp"]))
+    lines.extend(
+        _add_load_fault(["c.flw", "c.flwsp"], test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg)
+    )
     lines.append("#endif")
 
     # Zcd
     lines.append("#ifdef ZCD_SUPPORTED")
-    lines.extend(add_l_fault(["c.fld", "c.fldsp"]))
+    lines.extend(
+        _add_load_fault(["c.fld", "c.fldsp"], test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg)
+    )
     lines.append("#endif")
 
     test_data.int_regs.return_registers([addr_reg, base_reg, check_reg])
@@ -242,56 +366,34 @@ def _generate_store_access_fault_tests(test_data: TestData) -> list[str]:
 
     lines = [comment_banner(coverpoint, "Store Access Fault")]
 
-    def add_s_fault(ops: list[str]) -> list[str]:
-        all_lines = []
-        for op in ops:
-            is_sp = op.endswith("sp")
-            t_lines = []
-            suffix = "_sp" if is_sp else ""
-            test_label = f"{op.lower()}{suffix}_fault"
-
-            # 8-byte alignment
-            t_lines.append("    .align 3")
-            t_lines.append(test_data.add_testcase(coverpoint, test_label, covergroup))
-
-            t_lines.append(f"    li x{addr_reg}, RVMODEL_ACCESS_FAULT_ADDRESS")
-
-            reg_str = f"f{fp_reg}" if "f" in op.lower() else f"x{check_reg}"
-
-            if is_sp:
-                t_lines.append(f"    mv x{base_reg}, sp")
-                t_lines.append(f"    mv sp, x{addr_reg}")
-                t_lines.append(f"    {op} {reg_str}, 0(sp)")
-                t_lines.append(f"    mv sp, x{base_reg}")
-            else:
-                t_lines.append(f"    {op} {reg_str}, 0(x{addr_reg})")
-
-            t_lines.append("    nop")
-            t_lines.append("    nop")
-
-            all_lines.extend(t_lines)
-        return all_lines
-
     # Zca
     base_ops = ["c.sw", "c.swsp"]
-    lines.extend(add_s_fault(base_ops))
+    lines.extend(_add_store_fault(base_ops, test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg))
     lines.append("#if __riscv_xlen == 64")
-    lines.extend(add_s_fault(["c.sd", "c.sdsp"]))
+    lines.extend(
+        _add_store_fault(["c.sd", "c.sdsp"], test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg)
+    )
     lines.append("#endif")
 
     # Zcb
     lines.append("#ifdef ZCB_SUPPORTED")
-    lines.extend(add_s_fault(["c.sb", "c.sh"]))
+    lines.extend(
+        _add_store_fault(["c.sb", "c.sh"], test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg)
+    )
     lines.append("#endif")
 
     # Zcf
     lines.append("#if defined(ZCF_SUPPORTED)")
-    lines.extend(add_s_fault(["c.fsw", "c.fswsp"]))
+    lines.extend(
+        _add_store_fault(["c.fsw", "c.fswsp"], test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg)
+    )
     lines.append("#endif")
 
     # Zcd
     lines.append("#ifdef ZCD_SUPPORTED")
-    lines.extend(add_s_fault(["c.fsd", "c.fsdsp"]))
+    lines.extend(
+        _add_store_fault(["c.fsd", "c.fsdsp"], test_data, coverpoint, covergroup, addr_reg, base_reg, check_reg, fp_reg)
+    )
     lines.append("#endif")
 
     test_data.int_regs.return_registers([addr_reg, base_reg, check_reg])
