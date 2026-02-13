@@ -115,12 +115,10 @@ def _generate_store_address_misaligned_tests(test_data: TestData) -> list[str]:
                 if is_sp:
                     t_lines.append(f"    mv x{base_reg}, sp")  # Save sp
                     t_lines.append("    LA(sp, scratch)")
-                    if offset > 0:
-                        t_lines.append(f"    addi sp, sp, {offset}")
+                    t_lines.append(f"    addi sp, sp, {offset}")
                 else:
                     t_lines.append(f"    LA(x{addr_reg}, scratch)")
-                    if offset > 0:
-                        t_lines.append(f"    addi x{addr_reg}, x{addr_reg}, {offset}")
+                    t_lines.append(f"    addi x{addr_reg}, x{addr_reg}, {offset}")
 
                 # Perform store
                 reg_str = f"f{fp_reg}" if "f" in op.lower() else f"x{check_reg}"
