@@ -99,4 +99,12 @@
 
 #define RVMODEL_CLR_SEXT_INT(_R1, _R2)
 
+/* Temporary interrupt support parameters until UDB provides them.
+ * Declare each platform interrupt source this DUT can raise: MTI/MSI/MEI (machine timer,
+ * software, external), SEI (supervisor external) and LCOFI (a software write to mip.LCOFIP raises
+ * the interrupt). STI and SSI are derived from S_SUPPORTED, and LCOFI additionally requires
+ * SSCOFPMF_SUPPORTED, in tests/env/derived_config.h. */
+#define UDB_MEI_SUPPORTED 1
+#define UDB_SEI_SUPPORTED 1
+
 #endif // _RVMODEL_MACROS_H

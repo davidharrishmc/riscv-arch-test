@@ -17,6 +17,12 @@ from pathlib import Path
 # the macro name; only macros with an active (non-commented) #define are emitted.
 _MIRRORED_DEFINES: list[str] = [
     "RVMODEL_ACCESS_FAULT_ADDRESS",
+    "UDB_MTI_SUPPORTED",
+    "UDB_MSI_SUPPORTED",
+    "UDB_MEI_SUPPORTED",
+    "UDB_SEI_SUPPORTED",
+    "UDB_LCOFI_SUPPORTED",
+    "RVMODEL_SEXT_MEXT_SHARED_SOURCE",
 ]
 
 _DEFINE_RE = re.compile(r"^\s*#define\s+(\w+)\s+(0[xX][0-9a-fA-F]+|\d+)\b")

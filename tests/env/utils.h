@@ -474,6 +474,12 @@
 #define RVTEST_CLR_SEXT_INT_M \
   jal rvtest_clr_sext_int_m     /* Clear supervisor external interrupt */
 
+#define RVTEST_SET_LCOF_INT_M \
+  jal rvtest_set_lcof_int_m     /* Trigger local counter overflow interrupt */
+
+#define RVTEST_CLR_LCOF_INT_M \
+  jal rvtest_clr_lcof_int_m     /* Clear local counter overflow interrupt */
+
 // Flavors to run from Supervisor mode
 
 #define RVTEST_SET_MTIME_INT_SOON_S \
@@ -524,6 +530,12 @@
 #define RVTEST_CLR_SEXT_INT_S \
   jal rvtest_clr_sext_int_su     /* Clear supervisor external interrupt */
 
+#define RVTEST_SET_LCOF_INT_S \
+  jal rvtest_set_lcof_int_su     /* Trigger local counter overflow interrupt */
+
+#define RVTEST_CLR_LCOF_INT_S \
+  jal rvtest_clr_lcof_int_su     /* Clear local counter overflow interrupt */
+
 // Flavors to run from User mode
 
 #define RVTEST_SET_MTIME_INT_SOON_U \
@@ -573,6 +585,12 @@
 
 #define RVTEST_CLR_SEXT_INT_U \
   jal rvtest_clr_sext_int_su     /* Clear supervisor external interrupt */
+
+#define RVTEST_SET_LCOF_INT_U \
+  jal rvtest_set_lcof_int_su     /* Trigger local counter overflow interrupt */
+
+#define RVTEST_CLR_LCOF_INT_U \
+  jal rvtest_clr_lcof_int_su     /* Clear local counter overflow interrupt */
 
 
 // V-mode interrupts not yet supported in Sail reference model

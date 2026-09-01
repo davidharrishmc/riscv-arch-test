@@ -115,7 +115,6 @@
 #define CLINT_BASE_ADDRESS 0x02000000
 #define RVMODEL_MSIP_ADDRESS (CLINT_BASE_ADDRESS + 0x0)
 
-
 #define PLIC_BASE_ADDRESS    0x0c000000
 #define PLIC_ENABLE_ADDRESS  0x0c002000
 #define PLIC_THRESH_ADDRESS  0x0c200000
@@ -175,13 +174,20 @@
   li _R2, PLIC_SENABLE_ADDRESS;  /* Disable the S-context UART enable that SET_SEXT turned on, so a later MEXT test does not also raise SEIP via the shared source */\
   sw zero, 0(_R2);
 
-#define RVMODEL_SET_SSW_INT(_R1, _R2) \
-  li _R1, 1; \
-  li _R2, CVW_SSIP_ADDRESS; \
-  sw _R1, 0(_R2);
+/* No SSIP register in the CLINT-only configuration: SSW interrupts are raised through mip.SSIP */
 
-#define RVMODEL_CLR_SSW_INT(_R1, _R2) \
-  li _R2, CVW_SSIP_ADDRESS; \
-  sw zero, 0(_R2);
+/* The PLIC's M and S external contexts are driven by the same (UART) source, so MEI and SEI cannot be
+ * raised and cleared independently of each other. */
+#define RVMODEL_SEXT_MEXT_SHARED_SOURCE 1
+
+/* Temporary interrupt support parameters until UDB provides them.
+ * Declare each platform interrupt source this DUT can raise: MTI/MSI/MEI (machine timer,
+ * software, external), SEI (supervisor external) and LCOFI (a software write to mip.LCOFIP raises
+ * the interrupt). STI and SSI are derived from S_SUPPORTED, and LCOFI additionally requires
+ * SSCOFPMF_SUPPORTED, in tests/env/derived_config.h. */
+#define UDB_MTI_SUPPORTED 1
+#define UDB_MSI_SUPPORTED 1
+#define UDB_MEI_SUPPORTED 1
+#define UDB_SEI_SUPPORTED 1
 
 #endif // _RVMODEL_MACROS_H

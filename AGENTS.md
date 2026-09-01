@@ -55,6 +55,8 @@
 - Do not hand-edit `framework/src/act/fcov/coverage/RISCV_imported_decode_pkg.svh`; it is generated from `riscv-opcodes`.
 - Unprivileged tests do not install trap handlers and can infinite-loop on traps. Tests that may trap should use the privileged-test style.
 - In privileged generated assembly, avoid loops; emit repeated code with Python loops so testcase labels/debug strings stay unique.
+- Retired suites live under the top-level `old/` tree (mirroring `generators/`, `coverpoints/`, `tests/`); nothing under `old/` is discovered by testgen, covergroupgen or act.
+- Interrupt suites: `InterruptsSm` (boots to M, runs each testcase in M, S and U) and `InterruptsS` (boots to S, runs in S and U) are built from `InterruptsCommon.py`. Which sources a platform can raise is declared as `UDB_MTI/MSI/MEI/SEI/LCOFI_SUPPORTED` in its `rvmodel_macros.h` (mirrored into `rvmodel_macros.svh`); `tests/env/interrupt_config.h` and `derived_config.svh` derive STI/SSI and the `UDB_<TYPE>_DELEGATION_SUPPORTED` knobs. Tests raise interrupts with `RVTEST_SET_<type>_INT_<mode>` and let the trap handler record and clear them; interrupt trap records carry no xEPC, so timer skew between models is harmless as long as the interrupt lands inside the same testcase. The coverage model has no trap entries: taken interrupts are recognized at the handler's first instruction (`csrrw sp, xscratch, sp`), pending ones at the `addi x0, x0, 1` sample point the generator emits after waiting.
 - When modifying Python generators, don't add a lot of stuff to docstrings.
 - When changing files, don't leave comments about what was changed or why. Just focus on what it does.
 

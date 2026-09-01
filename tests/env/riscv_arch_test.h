@@ -12,6 +12,7 @@
 #ifndef RVTEST_SELFCHECK
   #include "sail_macros.h"
 #endif
+#include "interrupt_config.h"
 #include "check_defines.h"
 #include "signature.h"
 #include "rvtest_macros.h"

@@ -31,7 +31,6 @@
 // state in a fashion similar to RVTEST_BOOT_TO_MMODE.
 //#define RVMODEL_BOOT_TO_MMODE
 
-
 ##### TERMINATION #####
 
 # QEMU uses semihosting to terminate the simulation.
@@ -156,7 +155,6 @@
   j 1b                       ;/* Loop */             \
 3:
 
-
 ##### Access Fault #####
 
 #define RVMODEL_ACCESS_FAULT_ADDRESS 0x00000100
@@ -189,8 +187,6 @@
 #define PLIC_SCLAIM_ADDRESS  0x0c201004
 #define NS16550_BASE_ADDRESS 0x10000000
 #define UART_INT_SRC         10           /* NS16550 interrupt source ID in QEMU virt */
-
-
 
 /* Generates machine external interrupt via PLIC + NS16550 UART transmitter interrupt.
  * The UART throws an interrupt because the THR (Transmit Holding Register) defaults to empty.
@@ -249,5 +245,19 @@
   sw _R1, 0(_R2);                               \
   li _R2, PLIC_SENABLE_ADDRESS;                 \
   sw zero, 0(_R2);
+
+/* The PLIC's M and S external contexts are driven by the same (UART) source, so MEI and SEI cannot be
+ * raised and cleared independently of each other. */
+#define RVMODEL_SEXT_MEXT_SHARED_SOURCE 1
+
+/* Temporary interrupt support parameters until UDB provides them.
+ * Declare each platform interrupt source this DUT can raise: MTI/MSI/MEI (machine timer,
+ * software, external), SEI (supervisor external) and LCOFI (a software write to mip.LCOFIP raises
+ * the interrupt). STI and SSI are derived from S_SUPPORTED, and LCOFI additionally requires
+ * SSCOFPMF_SUPPORTED, in tests/env/derived_config.h. */
+#define UDB_MTI_SUPPORTED 1
+#define UDB_MSI_SUPPORTED 1
+#define UDB_MEI_SUPPORTED 1
+#define UDB_SEI_SUPPORTED 1
 
 #endif // _RVMODEL_MACROS_H

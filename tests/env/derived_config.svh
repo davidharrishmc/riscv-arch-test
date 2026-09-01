@@ -137,4 +137,26 @@
   `define SM1P12P0_OR_LATER_SUPPORTED
 `endif
 
+// Temporary interrupt support parameters until UDB provides them.
+// Platform sources (UDB_MTI/MSI/MEI/SEI_SUPPORTED) are mirrored from the DUT's rvmodel_macros.h;
+// the supervisor-level sources follow the ISA configuration.
+`ifdef S_SUPPORTED
+  `define UDB_STI_SUPPORTED 1
+  `define UDB_SSI_SUPPORTED 1
+  `ifndef SSCOFPMF_SUPPORTED
+    `undef UDB_LCOFI_SUPPORTED
+  `endif
+  `define UDB_STI_DELEGATION_SUPPORTED 1
+  `define UDB_SSI_DELEGATION_SUPPORTED 1
+  `ifdef UDB_SEI_SUPPORTED
+    `define UDB_SEI_DELEGATION_SUPPORTED 1
+  `endif
+  `ifdef UDB_LCOFI_SUPPORTED
+    `define UDB_LCOFI_DELEGATION_SUPPORTED 1
+  `endif
+`else
+  `undef UDB_SEI_SUPPORTED
+  `undef UDB_LCOFI_SUPPORTED
+`endif
+
 `endif // DERIVED_CONFIG_SVH

@@ -45,3 +45,6 @@ docs/crd/build
 coverpoints/norm/norm-rules.json
 coverpoints/norm/yaml/new
 coverpoints/norm/yaml/chapters
+
+# retired suites kept for reference; generated tests are build output
+old/tests/**/*.S

@@ -46,7 +46,6 @@
     sw x0, 4(t0)          ;\
     j write_tohost_pass   ;\
 
-
 # Terminate test with a fail indication.
 # When the test is run in simulation, this should end the simulation.
 #define RVMODEL_HALT_FAIL \
@@ -57,7 +56,6 @@
     sw x0, 4(t0)          ;\
     j write_tohost_fail   ;\
 
-
 ##### IO #####
 
 # Initialization steps needed prior to writing to the console
@@ -65,7 +63,6 @@
 # Do not modify any other registers (or make sure to restore them).
 # Can be empty or left undefined if no initialization is needed.
 // #define RVMODEL_IO_INIT(_R1, _R2, _R3)
-
 
 # Prints a null-terminated string using a DUT specific mechanism.
 # A pointer to the string is passed in _STR_PTR.
@@ -109,7 +106,6 @@
   li _R2, SIG_ADDRESS;    \
   sw _R1, 0(_R2)            ; /* Set MEXT interrupt */ \
 
-
 #define RVMODEL_CLR_MEXT_INT(_R1, _R2)        \
   li _R1, (1 << 11);               \
   li _R2, SIG_ADDRESS;    \
@@ -129,7 +125,6 @@
   li _R2, SIG_ADDRESS;    \
   sw _R1, 0(_R2)            ; /* Clear SEXT interrupt */ \
 
-
 #define RVMODEL_SET_SSW_INT(_R1, _R2)        \
   li _R1, (1 << 31) | (1 << 1);               \
   li _R2, SIG_ADDRESS;    \
@@ -139,5 +134,16 @@
   li _R1, (1 << 1);               \
   li _R2, SIG_ADDRESS;    \
   sw _R1, 0(_R2)            ; /* Clear SSW interrupt */ \
+
+/* Temporary interrupt support parameters until UDB provides them.
+ * Declare each platform interrupt source this DUT can raise: MTI/MSI/MEI (machine timer,
+ * software, external), SEI (supervisor external) and LCOFI (a software write to mip.LCOFIP raises
+ * the interrupt). STI and SSI are derived from S_SUPPORTED, and LCOFI additionally requires
+ * SSCOFPMF_SUPPORTED, in tests/env/derived_config.h. */
+#define UDB_MTI_SUPPORTED 1
+#define UDB_MSI_SUPPORTED 1
+#define UDB_MEI_SUPPORTED 1
+#define UDB_SEI_SUPPORTED 1
+#define UDB_LCOFI_SUPPORTED 1
 
 #endif // _RVMODEL_MACROS_H

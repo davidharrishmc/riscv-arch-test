@@ -45,14 +45,12 @@
     sw x0, 4(t0)          ;\
     j _test_exit          ;\
 
-
 # Terminate test with a fail indication.
 # When the test is run in simulation, this should end the simulation.
 #define RVMODEL_HALT_FAIL \
   li x1, 3                ;\
   la t0, tohost           ;\
   j _test_exit            ;\
-
 
 ##### IO #####
 
@@ -61,7 +59,6 @@
 # Do not modify any other registers (or make sure to restore them).
 # Can be empty or left undefined if no initialization is needed.
 //#define RVMODEL_IO_INIT(_R1, _R2, _R3)
-
 
 # Prints a null-terminated string using a DUT specific mechanism.
 # A pointer to the string is passed in _STR_PTR.
@@ -102,11 +99,9 @@
   li _R2, RVMODEL_MEXT_ADDRESS; \
   sw _R1, 0(_R2)            ; /* Set MEXT interrupt */ \
 
-
 #define RVMODEL_CLR_MEXT_INT(_R1, _R2)        \
   li _R2, RVMODEL_MEXT_ADDRESS; \
   sw zero, 0(_R2)            ; /* Clear MEXT interrupt */ \
-
 
 #define MSIP_ADDRESS (CLINT_BASE_ADDRESS + 0x0)
 
@@ -115,12 +110,9 @@
   li _R2, MSIP_ADDRESS;              \
   sw _R1, 0(_R2);
 
-
 #define RVMODEL_CLR_MSW_INT(_R1, _R2)        \
   li _R2, MSIP_ADDRESS;              \
   sw zero, 0(_R2);
-
-
 
 ##### Supervisor Interrupts #####
 
@@ -131,11 +123,9 @@
   li _R2, SAIL_SEXT_ADDRESS; \
   sw _R1, 0(_R2)            ; /* Set SEXT interrupt */ \
 
-
 #define RVMODEL_CLR_SEXT_INT(_R1, _R2)        \
   li _R2, SAIL_SEXT_ADDRESS; \
   sw zero, 0(_R2)            ; /* Clear SEXT interrupt */
-
 
 // TODO: check to see if SAIL support this, and we may want to implement this in WALLY
 #define CLINT_SSIP_ADDRESS (CLINT_BASE_ADDRESS + 0xC000)
@@ -144,9 +134,19 @@
   li _R2, CLINT_SSIP_ADDRESS;              \
   sw _R1, 0(_R2);
 
-
 #define RVMODEL_CLR_SSW_INT(_R1, _R2)        \
   li _R2, CLINT_SSIP_ADDRESS;              \
   sw zero, 0(_R2);
+
+/* Temporary interrupt support parameters until UDB provides them.
+ * Declare each platform interrupt source this DUT can raise: MTI/MSI/MEI (machine timer,
+ * software, external), SEI (supervisor external) and LCOFI (a software write to mip.LCOFIP raises
+ * the interrupt). STI and SSI are derived from S_SUPPORTED, and LCOFI additionally requires
+ * SSCOFPMF_SUPPORTED, in tests/env/derived_config.h. */
+#define UDB_MTI_SUPPORTED 1
+#define UDB_MSI_SUPPORTED 1
+#define UDB_MEI_SUPPORTED 1
+#define UDB_SEI_SUPPORTED 1
+#define UDB_LCOFI_SUPPORTED 1
 
 #endif // _RVMODEL_MACROS_H

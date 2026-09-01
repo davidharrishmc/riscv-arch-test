@@ -144,4 +144,19 @@
   li _R2, SPIKE_SSIP_ADDRESS; \
   sw zero, 0(_R2);
 
+/* The PLIC's M and S external contexts are driven by the same (UART) source, so MEI and SEI cannot be
+ * raised and cleared independently of each other. */
+#define RVMODEL_SEXT_MEXT_SHARED_SOURCE 1
+
+/* Temporary interrupt support parameters until UDB provides them.
+ * Declare each platform interrupt source this DUT can raise: MTI/MSI/MEI (machine timer,
+ * software, external), SEI (supervisor external) and LCOFI (a software write to mip.LCOFIP raises
+ * the interrupt). STI and SSI are derived from S_SUPPORTED, and LCOFI additionally requires
+ * SSCOFPMF_SUPPORTED, in tests/env/derived_config.h. */
+#define UDB_MTI_SUPPORTED 1
+#define UDB_MSI_SUPPORTED 1
+#define UDB_MEI_SUPPORTED 1
+#define UDB_SEI_SUPPORTED 1
+#define UDB_LCOFI_SUPPORTED 1
+
 #endif // _RVMODEL_MACROS_H

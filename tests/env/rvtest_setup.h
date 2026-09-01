@@ -381,6 +381,16 @@
       #endif
       ret
 
+    rvtest_set_lcof_int_m:
+      li a1, MIP_LCOFIP
+      csrs mip, a1        // Trigger mip.LCOFIP
+      ret
+
+    rvtest_clr_lcof_int_m:
+      li a1, MIP_LCOFIP
+      csrc mip, a1        // Clear mip.LCOFIP
+      ret
+
     #ifdef SSTC_SUPPORTED
       rvtest_set_sstc_int_soon_m:
         #if defined(RVMODEL_MTIME_ADDRESS) && defined(RVMODEL_TIMER_INT_SOON_DELAY)
@@ -557,6 +567,14 @@
       #ifdef RVMODEL_CLR_MEXT_INT
         RVMODEL_CLR_MEXT_INT(a0, a1) // platform-specific interrupt controller
       #endif
+      ret
+
+    rvtest_set_lcof_int_su:
+      RVTEST_TSBI_CSR_SET(CSR_MIP, MIP_LCOFIP) // set mip.LCOFIP
+      ret
+
+    rvtest_clr_lcof_int_su:
+      RVTEST_TSBI_CSR_CLEAR(CSR_MIP, MIP_LCOFIP) // clear mip.LCOFIP
       ret
   #endif
 

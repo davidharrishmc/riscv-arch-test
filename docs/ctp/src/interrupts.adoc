@@ -1,78 +1,35 @@
-
 === Interrupts
 
-Interrupt tests are organized according to the privilege mode or extension supported.
+Interrupt tests are organized by the privilege level of the interrupts under test. Each suite boots to its
+home mode and repeats every testcase in each supported lower privilege mode, raising interrupts through
+the `RVTEST_SET_<type>_INT_<mode>` macros and letting the trap handler record and clear them.
+Which interrupt sources a platform can raise is described by the `UDB_<TYPE>_SUPPORTED` parameters
+(temporarily supplied by each configuration's `rvmodel_macros.h` until UDB provides them).
 
-==== InterruptsSm Machine-Mode Interrupts
+==== InterruptsSm Machine-Level Interrupts
 
-These tests are run on any configuration with machine mode that supports interrupts.
+These tests are run on any configuration with a standard machine mode. They boot to M-mode and exercise
+every supported interrupt (MTI, MSI, MEI, STI, SSI, SEI, LCOFI) from M, S and U mode, including
+delegation through `mideleg`.
 
 [[t-InterruptsSm-coverpoints]]
 .InterruptsSm Coverpoints
 ,===
-https://docs.google.com/spreadsheets/d/18S2xJ6lxXhe2X9N9zcahoPMdvrqEnBFKdldi1fc7fOA/edit?gid=399538825#gid=399538825[Google Sheet Testplan]
+https://docs.google.com/spreadsheets/d/1gBymMadMSRy4SW_nYUmglFAe1-LtjaqOA6aXcrxCAsk/edit?gid=0#gid=0[Google Sheet Testplan]
 ,===
 
 include::norm/InterruptsSm_norm_rules.adoc[]
 
-TODO: coverpoints will need to ignore bins with mie.msie nonzero:
-  # If a system has only one hart, or if a platform standard supports the delivery
-  # of machine-level interprocessor interrupts through external interrupts (MEI)
-  # instead, then mip.MSIP and mie.MSIE may both be read-only zeros.
-  - name: mie_msie_maybe_rdonly0
-TODO: mip.MSIP update time
-  # When the memory-mapped msip register changes, it is guaranteed to be reflected
-  # in mip.MSIP eventually, but not necessarily immediately.
-  - name: msip_update_max_time
+==== InterruptsS Supervisor-Level Interrupts
 
-==== InterruptsS Supervisor-Mode Interrupts
-
-These tests are run on any configuration with supervisor mode that supports interrupts. Note that they include tests in other modes, such as interrupts from user mode delegated to supervisor mode.
+These tests are run on any configuration with supervisor mode. They boot to S-mode with every
+supervisor-level interrupt delegated and exercise STI, SSI, SEI and LCOFI from S and U mode without
+touching machine-mode state.
 
 [[t-InterruptsS-coverpoints]]
 .InterruptsS Coverpoints
 ,===
-https://docs.google.com/spreadsheets/d/18S2xJ6lxXhe2X9N9zcahoPMdvrqEnBFKdldi1fc7fOA/edit?gid=664673151#gid=664673151[Google Sheet Testplan]
+https://docs.google.com/spreadsheets/d/1gBymMadMSRy4SW_nYUmglFAe1-LtjaqOA6aXcrxCAsk/edit?gid=0#gid=0[Google Sheet Testplan]
 ,===
-
 
 include::norm/InterruptsS_norm_rules.adoc[]
-
-==== InterruptsSSm Supervisor-Mode Interrupts (runs in Machine mode)
-
-These tests are run on any configuration with supervisor mode and standard machine mode that supports interrupts. Note that the test runs in M mode, testing features that only exist if S mode is supported.
-
-[[t-InterruptsSSm-coverpoints]]
-.InterruptsSSm Coverpoints
-,===
-https://docs.google.com/spreadsheets/d/18S2xJ6lxXhe2X9N9zcahoPMdvrqEnBFKdldi1fc7fOA/edit?gid=1129427901#gid=1129427901[Google Sheet Testplan]
-,===
-
-
-include::norm/InterruptsSSm_norm_rules.adoc[]
-
-==== InterruptsU User-Mode Interrupts
-
-These tests are run on any configuration with user mode that supports interrupts.
-
-[[t-InterruptsU-coverpoints]]
-.InterruptsU Coverpoints
-,===
-https://docs.google.com/spreadsheets/d/18S2xJ6lxXhe2X9N9zcahoPMdvrqEnBFKdldi1fc7fOA/edit?gid=1458360883#gid=1458360883[Google Sheet Testplan]
-,===
-
-include::norm/InterruptsU_norm_rules.adoc[]
-
-==== InterruptsSstc Supervisor Timer Compare Interrupts
-
-These tests are run when the Sstc supervisor timer compare extension is supported.
-
-[[t-InterruptsSstc-coverpoints]]
-.InterruptsSstc Coverpoints
-,===
-https://docs.google.com/spreadsheets/d/18S2xJ6lxXhe2X9N9zcahoPMdvrqEnBFKdldi1fc7fOA/edit?gid=347804969#gid=347804969[Google Sheet Testplan]
-,===
-
-include::norm/InterruptsSstc_norm_rules.adoc[]
-
-TODO: beef up testing stimecmp values, behavior near wraparound

@@ -1,10 +1,8 @@
 ///////////////////////////////////////////
 //
-// RISC-V Architectural Functional Coverage Covergroups
+// RISC-V Architectural Functional Coverage Covergroups Initialization File
 //
-// Written: David Harris david_harris@hmc.edu 29 August 2026
-//
-// Copyright (C) 2026 Harvey Mudd College, 10x Engineers, UET Lahore, Habib University
+// Copyright (C) 2024 Harvey Mudd College, 10x Engineers, UET Lahore, Habib University
 //
 // SPDX-License-Identifier: Apache-2.0
 //

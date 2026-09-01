@@ -1824,6 +1824,7 @@ tsbi_instr_table:
         //TSBI_CSR_INSTR_TABLE(0x305) // mtvec
         TSBI_CSR_INSTR_TABLE(0x306) // mcounteren
         TSBI_CSR_INSTR_TABLE(0x30A) // menvcfg
+        TSBI_CSR_INSTR_TABLE(0x31A) // menvcfgh
         TSBI_CSR_INSTR_TABLE(0x344) // mip
         TSBI_CSR_INSTR_TABLE(0x747) // mseccfg
         TSBI_CSR_INSTR_TABLE(0x320) // mcountinhibit
@@ -1837,6 +1838,7 @@ tsbi_instr_table:
         TSBI_CSR_INSTR_TABLE(0x10A) // senvcfg
         TSBI_CSR_INSTR_TABLE(0x144) // sip
         TSBI_CSR_INSTR_TABLE(0x14D) // stimecmp
+        TSBI_CSR_INSTR_TABLE(0x15D) // stimecmph
         TSBI_CSR_INSTR_TABLE(0x180) // satp
         TSBI_CSR_INSTR_TABLE(0x7A0) // tselect
         TSBI_CSR_INSTR_TABLE(0x7A1) // tdata1
@@ -2392,8 +2394,12 @@ clrint_\__MODE__\()tbl:
   #endif
 #endif
 
- .rept NUM_SPECD_INTCAUSES-0xC
-        .dword  1                                    // causes 12..23: reserved -> default return
+        .dword  12*2+1                               // cause 12: reserved -> default return
+        .dword  \__MODE__\()clr_Lcof_int             // cause 13: local counter overflow interrupt
+ .set causeidx, 14
+ .rept NUM_SPECD_INTCAUSES-14
+        .dword  causeidx*2+1                         // causes 14..23: reserved -> default return
+ .set causeidx, causeidx+1
  .endr
  .rept UDB_MXLEN-NUM_SPECD_INTCAUSES
         .dword  0                       // impossible, quit test by jumping to  epilogs
@@ -2454,6 +2460,15 @@ excpt_\__MODE__\()hndlr_tbl:
   .endif
         CLR_INT_RETURN \__MODE__
 
+\__MODE__\()clr_Lcof_int:                            // local counter overflow interrupt
+        CLR_INT_ENTER
+  .ifc \__MODE__ , M
+        RVTEST_CLR_LCOF_INT_M
+  .else
+        RVTEST_CLR_LCOF_INT_S
+  .endif
+        CLR_INT_RETURN \__MODE__
+
 #ifdef S_SUPPORTED
 \__MODE__\()clr_Ssw_int:                             // S-mode software interrupt
         CLR_INT_ENTER
@@ -2468,31 +2483,55 @@ excpt_\__MODE__\()hndlr_tbl:
         RVTEST_DFLT_INT_HNDLR
 #endif
 
-\__MODE__\()clr_Stmr_int:                            // S-mode timer interrupt
-        RVTEST_CLR_STIMER_INT
-        la      T2, resto_\__MODE__\()rtn
-        jr      T2
+#ifdef S_SUPPORTED
+\__MODE__\()clr_Stmr_int:                            // S-mode timer interrupt: clear mip.STIP and disarm stimecmp
+        CLR_INT_ENTER
+  .ifc \__MODE__ , M
+        RVTEST_CLR_STIME_INT_M
+    #ifdef SSTC_SUPPORTED
+        RVTEST_CLR_SSTC_INT_M
+    #endif
+  .else
+        RVTEST_CLR_STIME_INT_S
+    #ifdef SSTC_SUPPORTED
+        li      a1, -1                               // stimecmp accesses go through M-mode: legal even when STCE=0
+      #if UDB_MXLEN == 32
+        RVTEST_TSBI_CSR_WRITE_A1(CSR_STIMECMPH)
+      #else
+        RVTEST_TSBI_CSR_WRITE_A1(CSR_STIMECMP)
+      #endif
+    #endif
+  .endif
+        CLR_INT_RETURN \__MODE__
+#else
+\__MODE__\()clr_Stmr_int:
+        RVTEST_DFLT_INT_HNDLR
+#endif
 
 #ifdef S_SUPPORTED
 \__MODE__\()clr_Sext_int:                            // S-mode external interrupt
         CLR_INT_ENTER
-        // A PLIC may drive the M and S external contexts from one source, so
-        // completing the S-context claim while MEIP is pending would also drop
-        // MEIP. In that case only mip.SEIP is cleared.
+        // On a platform whose PLIC drives the M and S external contexts from one
+        // source (RVMODEL_SEXT_MEXT_SHARED_SOURCE), completing the S-context claim
+        // while MEIP is pending would also drop MEIP, so only mip.SEIP is cleared.
   .ifc \__MODE__ , M
+    #ifdef RVMODEL_SEXT_MEXT_SHARED_SOURCE
         csrr    T3, CSR_MIP
         srli    T3, T3, 11
         andi    T3, T3, 1                            // T3 = mip.MEIP
         bnez    T3, 1f
+    #endif
         RVTEST_CLR_SEXT_INT_M
         j       2f
 1:      li      T3, 0x200
         csrc    CSR_MIP, T3
   .else
+    #ifdef RVMODEL_SEXT_MEXT_SHARED_SOURCE
         RVTEST_TSBI_CSR_READ(CSR_MIP)                // a0 = mip
         srli    T3, a0, 11
         andi    T3, T3, 1                            // T3 = mip.MEIP
         bnez    T3, 1f
+    #endif
         RVTEST_CLR_SEXT_INT_S
         j       2f
 1:      RVTEST_TSBI_CSR_CLEAR(CSR_MIP, 1<<9)
@@ -2508,6 +2547,7 @@ excpt_\__MODE__\()hndlr_tbl:
 \__MODE__\()clr_Msw_int:
 \__MODE__\()clr_Mtmr_int:
 \__MODE__\()clr_Mext_int:
+\__MODE__\()clr_Lcof_int:
 \__MODE__\()clr_Ssw_int:
 \__MODE__\()clr_Sext_int:
         RVTEST_DFLT_INT_HNDLR

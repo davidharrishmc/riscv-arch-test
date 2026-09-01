@@ -14,7 +14,6 @@
 # Perform boot operations
 //#define RVMODEL_BOOT \
 
-
 # Address to use for load/store fault tests that should cause an access fault on the DUT.
 # Must be outside all PMA main regions. Testbench must return OBI bus error for this address.
 //#define RVMODEL_ACCESS_FAULT_ADDRESS 0x80000000
@@ -71,5 +70,13 @@
 
 #define RVMODEL_SET_MEXT_INT(_R1, _R2)
 #define RVMODEL_CLR_MEXT_INT(_R1, _R2)
+
+/* Temporary interrupt support parameters until UDB provides them.
+ * Declare each platform interrupt source this DUT can raise: MTI/MSI/MEI (machine timer,
+ * software, external), SEI (supervisor external) and LCOFI (a software write to mip.LCOFIP raises
+ * the interrupt). STI and SSI are derived from S_SUPPORTED, and LCOFI additionally requires
+ * SSCOFPMF_SUPPORTED, in tests/env/derived_config.h. */
+#define UDB_MTI_SUPPORTED 1
+#define UDB_MEI_SUPPORTED 1
 
 #endif // _RVMODEL_MACROS_H
