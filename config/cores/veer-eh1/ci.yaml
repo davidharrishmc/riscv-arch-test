@@ -6,14 +6,14 @@ ci_enabled: true
 
 # Exclusions are by test-suite directory, the only granularity EXCLUDE_EXTENSIONS supports.
 # Each entry records the specific measured reason, on Cores-VeeR-EH1 @ d04b1c7a.
-# Current state: 125 tests selected, 108 pass, 17 fail. Full analysis in the PR description.
+# Current state: 125 tests selected, 109 pass, 16 fail. Full analysis in the PR description.
 #
-#   Sm            13 of 27 fail, in three modes.
+#   Sm            12 of 27 fail, in three modes.
 #                 (a) Trap count mismatch (Sm_mcsr_walk-03..10): the reference model records a
 #                     trap signature of 0x3080 bytes where the core records none, i.e. the two
 #                     disagree about which CSR accesses trap. Needs per-test triage.
 #                 (b) mtval mismatch (Sm_inst-00): see ExceptionsSm below.
-#                 (c) Value mismatch (Sm_mcsr_access-00, Sm_mcsr_cntr-00, Sm_mcsr_walk-02/-11):
+#                 (c) Value mismatch (Sm_mcsr_access-00, Sm_mcsr_cntr-00, Sm_mcsr_walk-02):
 #                     mip is pin-driven and read-only to software, so a written bit reads back 0
 #                     (expected 0x80, got 0x0), and a mcycle write does not stick (expected 0,
 #                     got 1).
