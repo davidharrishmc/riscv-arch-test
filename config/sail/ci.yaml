@@ -3,6 +3,8 @@
 # CI configuration for Sail reference model
 
 ci_enabled: true
+# Check each config's UDB yaml against the simulator with the UDB feature extractor
+feature_extractor: true
 exclude_extensions: "SdtrigSm,SdtrigS,SdtrigU"
 shards: 1
 config_shards:

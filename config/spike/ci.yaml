@@ -4,6 +4,8 @@
 # Shared across all Spike configs
 
 ci_enabled: true
+# Check each config's UDB yaml against the simulator with the UDB feature extractor
+feature_extractor: true
 # Smstateen will be added back once sail starts supporting Sscsrind too
 # Sdtrig* not yet supported in Sail reference
 exclude_extensions: "Smstateen,SdtrigSm,SdtrigS,SdtrigU"

@@ -6,6 +6,8 @@
 # Smstateen Sail does not yet support 1P13 bit
 # Sdtrig* not yet implemented in Sail
 ci_enabled: true
+# Check each config's UDB yaml against the simulator with the UDB feature extractor
+feature_extractor: true
 exclude_extensions: "SsstrictSm,Smstateen,SdtrigSm,SdtrigS,SdtrigU"
 exclude_configs:
   - whisper-rv32-max-spike-ref

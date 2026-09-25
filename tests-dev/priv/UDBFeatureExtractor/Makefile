@@ -11,6 +11,7 @@
 #   make -f tests-dev/priv/UDBFeatureExtractor/Makefile XLEN=32 CONFIG_DIR=config/sail/sail-rv32-max
 #   make -f tests-dev/priv/UDBFeatureExtractor/Makefile test       # self-test against Sail configurations
 #   make -f tests-dev/priv/UDBFeatureExtractor/Makefile regression JOBS=8   # every config/ vs its UDB yaml
+#   make -f tests-dev/priv/UDBFeatureExtractor/Makefile regression CONFIGS=spike-rv64-max,qemu-rv64-max
 #   make -f tests-dev/priv/UDBFeatureExtractor/Makefile elf CONFIG_DIR=config/cores/cvw/cvw-rv64gc
 #
 # CONFIG_DIR supplies the DUT's rvmodel_macros.h (console output and halt) and link.ld (memory
@@ -29,7 +30,7 @@ OUT        ?= $(BUILD_DIR)/extracted_config$(XLEN).yaml
 
 CC      := riscv64-unknown-elf-gcc
 OBJDUMP := riscv64-unknown-elf-objdump
-PYTHON  ?= python3
+PYTHON  ?= uv run
 
 # Compiled for the E base so the extractor itself runs on RV32E and RV64E harts; each probe enables
 # its own extension with `.option arch`.  GCC warns that the lp64e ABI may be deprecated, hence
@@ -72,12 +73,15 @@ dump: $(ELF)
 test:
 	$(PYTHON) $(SRC_DIR)/test/run_sail_tests.py --repo-root $(REPO_ROOT) --sim $(SIM) --build-dir $(BUILD_DIR)
 
-# Run the extractor on every configuration under config/ that has a run_cmd.txt, using that
-# command, and compare the result with the configuration's UDB yaml.  JOBS configurations run in
+# Run the extractor on every configuration under config/ that has a run_cmd.txt (or on the
+# comma-separated CONFIGS), using that command, and compare the result with the configuration's UDB
+# yaml; mismatches listed in test/known_mismatches.yaml are accepted.  JOBS configurations run in
 # parallel; configurations whose simulator is not installed are skipped.
 JOBS ?= 1
+CONFIGS ?=
 regression:
-	$(PYTHON) $(SRC_DIR)/test/regression.py --repo-root $(REPO_ROOT) --build-dir $(BUILD_DIR)/regression --jobs $(JOBS)
+	$(PYTHON) $(SRC_DIR)/test/regression.py --repo-root $(REPO_ROOT) --build-dir $(BUILD_DIR)/regression --jobs $(JOBS) \
+	  --configs "$(CONFIGS)"
 
 clean:
 	rm -rf $(BUILD_DIR)
@@ -88,5 +92,5 @@ help:
 	@echo "  elf   build only"
 	@echo "  dump  disassemble"
 	@echo "  test  self-test against the Sail max configurations for both XLENs"
-	@echo "  regression  run every config/**/run_cmd.txt configuration and compare with its UDB yaml (JOBS=n)"
+	@echo "  regression  run every config/**/run_cmd.txt configuration and compare with its UDB yaml (JOBS=n, CONFIGS=a,b)"
 	@echo "  clean remove $(BUILD_DIR)"

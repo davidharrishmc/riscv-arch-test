@@ -208,6 +208,15 @@ The params section is compared the same way: each parameter the extractor prints
 the yaml's value, and the per-configuration line lists mismatches with both values, plus how many of
 the yaml's parameters were not extracted.
 
+`test/known_mismatches.yaml` lists, per configuration, the extensions and parameters whose mismatch
+is understood, each with the reason: a configuration error still to be fixed, a simulator bug, a
+limit of the UDB schema, or a limit of the extractor. Listed mismatches are accepted; any other
+mismatch fails the regression, and so does a listed one that no longer occurs, so that the list
+shrinks as the causes are fixed. `CONFIGS=a,b` restricts the run to the named configurations. CI
+runs the regression for each Sail, Spike, QEMU and Whisper configuration (`feature_extractor: true`
+in `config/<simulator>/ci.yaml`), so a change that makes a UDB yaml disagree with its simulator
+fails there.
+
 Two steps before the first probe matter for some targets: `mstatus.MDT` is cleared, since
 Smdbltrp sets it at reset and a probe's trap would then be a double trap, and `mnstatus.NMIE` is
 set, since with Smrnmi an exception taken while it is clear goes to the RNMI vector rather than

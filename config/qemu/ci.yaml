@@ -4,6 +4,8 @@
 # Shared across all QEMU configs
 
 ci_enabled: true
+# Check each config's UDB yaml against the simulator with the UDB feature extractor
+feature_extractor: true
 # Status as of QEMU v11.1.0:
 # Sm: Multiple issues:
 #     need H support in Sail
