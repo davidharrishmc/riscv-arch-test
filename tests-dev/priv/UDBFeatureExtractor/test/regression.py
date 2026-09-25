@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 RISC-V International
 #
@@ -13,6 +13,16 @@
 # Configurations whose simulator is not on PATH are skipped.  Names only are compared: the
 # extractor cannot see versions, and the untested extensions it names in its output header are
 # reported separately rather than as mismatches.
+#
+# Mismatches listed for a configuration in known_mismatches.yaml are accepted; any other mismatch
+# fails, and so does a listed one that no longer occurs.
+#
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "pyyaml>=6.0",
+# ]
+# ///
 
 import argparse
 import concurrent.futures
@@ -174,13 +184,24 @@ def main() -> None:
     p.add_argument("--jobs", "-j", type=int, default=1, help="configurations to run in parallel")
     p.add_argument("--timeout", type=int, default=3600, help="seconds allowed per simulator run")
     p.add_argument("--configs", default="", help="comma-separated configuration names to run (default all)")
+    p.add_argument(
+        "--known-mismatches",
+        default=str(Path(__file__).with_name("known_mismatches.yaml")),
+        help="yaml of accepted mismatches: {configuration: {extension or parameter: reason}}",
+    )
     args = p.parse_args()
 
     root = Path(args.repo_root).resolve()
     build = Path(args.build_dir).resolve()
     makefile = root / "tests-dev/priv/UDBFeatureExtractor/Makefile"
     wanted = set(args.configs.split(",")) if args.configs else None
-    configs = [(d, y) for d, y in find_configs(root) if wanted is None or d.name in wanted]
+    known_mismatches = yaml.safe_load(Path(args.known_mismatches).read_text()) or {}
+    all_configs = list(find_configs(root))
+    unknown = set(known_mismatches) - {d.name for d, _ in all_configs}
+    if unknown:
+        print(f"{args.known_mismatches} names unknown configurations: " + " ".join(sorted(unknown)))
+        sys.exit(1)
+    configs = [(d, y) for d, y in all_configs if wanted is None or d.name in wanted]
     if not configs:
         print("no configurations found")
         sys.exit(1)
@@ -191,7 +212,7 @@ def main() -> None:
 
     width = max(len(r[0]) for r in results)
     failures = 0
-    total_matched = total_mismatched = total_untested = 0
+    total_matched = total_mismatched = total_untested = total_known = 0
     p_matched = p_mismatched = p_missing = 0
     for name, status, note, reported, expected, untested, params in results:
         if status == "skip":
@@ -203,35 +224,44 @@ def main() -> None:
         implied = {n for n in extra if n in IMPLIED and IMPLIED[n] <= expected}
         extra -= implied
         untested_expected = expected & untested
-        if missing or extra:
+        pm, pmis, pmissing, pextra = params
+        p_total = len(pm) + len(pmis) + len(pmissing)
+        # Known mismatches are accepted; one that did not occur is stale, unless the run reported nothing
+        known = set(known_mismatches.get(name) or {})
+        accepted = known & (missing | extra | set(pmis))
+        stale = known - accepted if reported else set()
+        missing -= accepted
+        extra -= accepted
+        pmis = {n: v for n, v in pmis.items() if n not in accepted}
+        if missing or extra or pmis or stale:
             status = "FAIL"
         if status == "FAIL":
             failures += 1
         total_matched += len(matched)
         total_mismatched += len(missing) + len(extra)
         total_untested += len(untested_expected)
+        total_known += len(accepted)
         line = f"{status:4} {name:{width}}  {len(matched):3} of {len(expected):3} match"
         if untested_expected:
             line += f", {len(untested_expected)} untested"
+        if accepted:
+            line += f", {len(accepted)} known mismatches"
         if missing:
             line += "  missing: " + " ".join(sorted(missing))
         if extra:
             line += "  extra: " + " ".join(sorted(extra))
         if implied:
             line += "  implied: " + " ".join(sorted(implied))
+        if stale:
+            line += "  known but no longer mismatched: " + " ".join(sorted(stale))
         if note:
             line += "  " + note
-        pm, pmis, pmissing, pextra = params
-        if pmis and status != "FAIL":
-            status = "FAIL"
-            failures += 1
-            line = "FAIL" + line[4:]
         print(line)
-        if pm or pmis or pmissing:
+        if p_total:
             p_matched += len(pm)
             p_mismatched += len(pmis)
             p_missing += len(pmissing)
-            pline = f"     params: {len(pm):3} of {len(pm) + len(pmis) + len(pmissing):3} match, {len(pmissing)} not extracted"
+            pline = f"     params: {len(pm):3} of {p_total:3} match, {len(pmissing)} not extracted"
             if pmis:
                 pline += "  mismatched: " + " ".join(
                     f"{n} (extracted {v!r}, yaml {e!r})" for n, (v, e) in sorted(pmis.items())
@@ -243,8 +273,12 @@ def main() -> None:
     print(
         f"{ran} configurations run, {len(results) - ran} skipped: {total_matched} extensions match, "
         f"{total_mismatched} mismatch, {total_untested} untested; "
-        f"{p_matched} parameters match, {p_mismatched} mismatch, {p_missing} not extracted"
+        f"{p_matched} parameters match, {p_mismatched} mismatch, {p_missing} not extracted; "
+        f"{total_known} known mismatches"
     )
+    if not ran:
+        print("no configuration ran")
+        sys.exit(1)
     print("all configurations match" if not failures else f"{failures} configuration(s) FAILED")
     sys.exit(1 if failures else 0)
 
