@@ -174,6 +174,7 @@ def discover_configs(config_dir: Path, workdir: Path | None = None) -> list[dict
         install_script = sim_config.get("install_script", "")
         apt_packages = sim_config.get("apt_packages", "")
         setup_script = sim_config.get("setup_script", "")
+        feature_extractor = bool(sim_config.get("feature_extractor", False))
         exclude_configs: set[str] = set(sim_config.get("exclude_configs", []))
         # Number of CI runners to split each config across. Defaults to 1
         # (no sharding). Slow simulators / configs benefit from a higher
@@ -244,6 +245,7 @@ def discover_configs(config_dir: Path, workdir: Path | None = None) -> list[dict
                         "install_script": install_script,
                         "apt_packages": apt_packages,
                         "setup_script": setup_script,
+                        "feature_extractor": feature_extractor,
                         "cache_key": cache_key,
                         "shard_index": shard_index,
                         "shard_total": shards,

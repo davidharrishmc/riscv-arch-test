@@ -173,6 +173,12 @@ jobs:
         env:
           MATRIX_RUN_CMD: ${{ matrix.run_cmd }}
 
+      # Runs the UDB feature extractor on the simulator and fails if what it measures differs from
+      # the config's UDB yaml in a way not listed in the extractor's known_mismatches.yaml
+      - name: Check UDB yaml with the feature extractor
+        if: ${{ !cancelled() && matrix.feature_extractor && matrix.shard_index == 0 && matrix.extensions != '' }}
+        run: make -f tests-dev/priv/UDBFeatureExtractor/Makefile regression CONFIGS="${MATRIX_CONFIG}"
+
       - name: Upload logs
         if: always() && matrix.extensions != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
