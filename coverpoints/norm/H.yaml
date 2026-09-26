@@ -54,35 +54,45 @@ normative_rule_definitions:
   - name: H_vscsrs_v1
     coverpoint:
       - H_cg/cp_vs_replica
-  - name: VSCAUSE_WLRL
+  - name: vscause_wlrl
     coverpoint:
       - H_cg/cp_hs_vscause
+  # Register hedeleg is a 64-bit read/write register, formatted as shown in
+  # &lt;&lt;norm:hedeleg_img&gt;&gt;.
+  - name: hedeleg_sz_acc
+    coverpoint: ["H_cg/cp_hs_hcsr_walk"]
+  # Each bit of hedeleg shall be either writable or read-only zero.
   - name: hedeleg_acc
-    coverpoint:
-      - H_cg/cp_hs_hcsr_walk
-  - name: hgeip_acc
+    coverpoint: ["H_cg/cp_hs_hcsr_walk"]
+  - name: hgeip_sz_acc_op
     coverpoint:
       - H_cg/cp_hs_hcsr_access
       - H_cg/cp_m_hcsr_access
+  # Register hideleg is an HSXLEN-bit read/write register, formatted as shown in
+  # &lt;&lt;norm:hideleg_img&gt;&gt;.
+  - name: hideleg_sz_acc
+    coverpoint: ["H_cg/cp_hs_hcsr_walk"]
+  # Among bits 15:0 of hideleg, bits 10, 6, and 2 (corresponding to the standard VS-level
+  # interrupts) are writable, and bits 12, 9, 5, and 1 (corresponding to the standard
+  # S-level interrupts) are read-only zeros.
   - name: hideleg_acc
-    coverpoint:
-      - H_cg/cp_hs_hcsr_walk
+    coverpoint: ["H_cg/cp_hs_hcsr_walk"]
   - name: hie_acc
     coverpoint:
       - H_cg/cp_hs_hcsr_walk
   - name: hip_acc
     coverpoint:
       - H_cg/cp_hs_hcsr_walk
-  - name: htinst_acc
+  - name: htinst_sz_acc_op
     coverpoint:
       - H_cg/cp_hs_hcsr_walk
-  - name: htval_acc
+  - name: htval_sz_acc_op
     coverpoint:
       - H_cg/cp_hs_hcsr_walk
   - name: hvip_acc
     coverpoint:
       - H_cg/cp_hs_hcsr_walk
-  - name: mtinst_acc
+  - name: mtinst_sz_acc_op
     coverpoint:
       - H_cg/cp_hs_mcsr_denied
       - H_cg/cp_m_hcsr_access
@@ -91,7 +101,7 @@ normative_rule_definitions:
   - name: mtinst_val
     coverpoint:
       - H_cg/cp_m_hcsr_walk
-  - name: mtval2_acc
+  - name: mtval2_sz_acc_op
     coverpoint:
       - H_cg/cp_hs_mcsr_denied
       - H_cg/cp_m_hcsr_access
@@ -100,7 +110,7 @@ normative_rule_definitions:
   - name: mtval2_val
     coverpoint:
       - H_cg/cp_m_hcsr_walk
-  - name: vscause_acc
+  - name: vscause_sz_acc_op
     coverpoint:
       - H_cg/cp_hs_vscause
   - name: vsstatus_fs_op
