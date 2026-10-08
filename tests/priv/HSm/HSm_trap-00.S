@@ -35,32 +35,32 @@ RVTEST_BEGIN
 //   implicit VS-stage access; the trap records hold mtval2 and mtinst
 /////////////////////////////////
 #if ((__riscv_xlen == 64 && defined(UDB_SV39_VSMODE_TRANSLATION)) || (__riscv_xlen == 32 && defined(UDB_SV32_VSMODE_TRANSLATION))) && ((__riscv_xlen == 64 && defined(UDB_SV39X4_TRANSLATION)) || (__riscv_xlen == 32 && defined(UDB_SV32X4_TRANSLATION)))
-  SET_MSB(x8)    # Sv39x4/Sv39 or Sv32x4/Sv32
-  LA(x15, rvtest_Hroot_pg_tbl)
-  srli x15, x15, 12
-  or x15, x15, x8
-  csrw hgatp, x15
+  SET_MSB(x6)    # Sv39x4/Sv39 or Sv32x4/Sv32
+  LA(x14, rvtest_Hroot_pg_tbl)
+  srli x14, x14, 12
+  or x14, x14, x6
+  csrw hgatp, x14
   csrw vsatp, zero
   hfence.gvma
-  LI(x15, 0x1000)
+  LI(x14, 0x1000)
   LI(x9, 42)
 HSm_inst_cg_cp_guest_page_fault_hlv_w_bare:
-  hlv.w x9, (x15)
+  hlv.w x9, (x14)
   # Check if x9 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
   RVTEST_SIGUPD(x2, x5, x4, x9, HSm_inst_cg_cp_guest_page_fault_hlv_w_bare, HSm_inst_cg_cp_guest_page_fault_hlv_w_bare_str)
 HSm_inst_cg_cp_guest_page_fault_hsv_w_bare:
-  hsv.w x9, (x15)
+  hsv.w x9, (x14)
   LI(x9, 0x2)
-  or x9, x9, x8
+  or x9, x9, x6
   csrw vsatp, x9
   hfence.vvma
   LI(x9, 42)
 HSm_inst_cg_cp_guest_page_fault_hlv_w_paged:
-  hlv.w x9, (x15)
+  hlv.w x9, (x14)
   # Check if x9 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
   RVTEST_SIGUPD(x2, x5, x4, x9, HSm_inst_cg_cp_guest_page_fault_hlv_w_paged, HSm_inst_cg_cp_guest_page_fault_hlv_w_paged_str)
 HSm_inst_cg_cp_guest_page_fault_hsv_w_paged:
-  hsv.w x9, (x15)
+  hsv.w x9, (x14)
   csrw vsatp, zero
   csrw hgatp, zero
   hfence.gvma
@@ -77,10 +77,10 @@ RVTEST_DATA_BEGIN
 
 
 // Testcase strings
-HSm_inst_cg_cp_guest_page_fault_hlv_w_bare_str: .string "\"test: 3209; cg: HSm_inst_cg; cp: cp_guest_page_fault; bin: hlv_w_bare\""
-HSm_inst_cg_cp_guest_page_fault_hsv_w_bare_str: .string "\"test: 3210; cg: HSm_inst_cg; cp: cp_guest_page_fault; bin: hsv_w_bare\""
-HSm_inst_cg_cp_guest_page_fault_hlv_w_paged_str: .string "\"test: 3211; cg: HSm_inst_cg; cp: cp_guest_page_fault; bin: hlv_w_paged\""
-HSm_inst_cg_cp_guest_page_fault_hsv_w_paged_str: .string "\"test: 3212; cg: HSm_inst_cg; cp: cp_guest_page_fault; bin: hsv_w_paged\""
+HSm_inst_cg_cp_guest_page_fault_hlv_w_bare_str: .string "\"test: 3210; cg: HSm_inst_cg; cp: cp_guest_page_fault; bin: hlv_w_bare\""
+HSm_inst_cg_cp_guest_page_fault_hsv_w_bare_str: .string "\"test: 3211; cg: HSm_inst_cg; cp: cp_guest_page_fault; bin: hsv_w_bare\""
+HSm_inst_cg_cp_guest_page_fault_hlv_w_paged_str: .string "\"test: 3212; cg: HSm_inst_cg; cp: cp_guest_page_fault; bin: hlv_w_paged\""
+HSm_inst_cg_cp_guest_page_fault_hsv_w_paged_str: .string "\"test: 3213; cg: HSm_inst_cg; cp: cp_guest_page_fault; bin: hsv_w_paged\""
 
 // End of test data section and model specific data
 RVTEST_DATA_END

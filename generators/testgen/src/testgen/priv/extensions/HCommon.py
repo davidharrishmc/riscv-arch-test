@@ -59,9 +59,13 @@ HSTATUS_MASK = (
     | (1 << 22)  # VTSR
 )
 
-# hedeleg bits the spec requires to be writable (1-8, 12, 13, 15, 18, 19) or read-only zero
-# (9-11, 16, 20-23).  Bit 0 depends on IALIGN.
-HEDELEG_MASK = 0xFDBFFE
+# hedeleg bits the spec requires to be writable (1-8, 12, 13, 15) or read-only zero (9-11, 16, 20-23).
+# Bit 0 depends on IALIGN.
+HEDELEG_MASK = 0xF3BFFE
+# Bits 18 (software check) and 19 (hardware error) must be writable only from Priv 1.13, which defined
+# those cause codes; in 1.12 they are reserved, so each bit may be writable or read-only zero.
+HEDELEG_P113_WRITABLE = (1 << 18) | (1 << 19)
+P113_GATE = "defined(SM1P13P0_OR_LATER_SUPPORTED)"
 # hideleg: VS-level interrupts 2, 6 and 10 are writable; 1, 5, 9 and 12 are read-only zero.
 HIDELEG_MASK = 0x1666
 # The VS-level interrupts (MIP_VS_MASK).  hie.SGEIE is left out: it is writable only if GEILEN > 0 (hie_acc).
@@ -199,6 +203,20 @@ def hcsr_tests(test_data: TestData, test_chunks: list[TestChunk], csrs: list[HCs
         tc.code.extend(gated([*csr.setup, *lines, *csr.restore], csr.gate))
     tc = test_data.new_test_chunk(test_chunks)
     tc.code.extend(csr_access_test(test_data, ("hgeip", None), covergroup, "cp_hcsr_access_ro"))
+    if any(csr.name == "hedeleg" for csr in csrs):
+        tc = test_data.new_test_chunk(test_chunks)
+        save_reg, ones_reg, check_reg, mask_reg = test_data.int_regs.get_registers(4)
+        lines = [
+            f"csrr x{save_reg}, hedeleg",
+            f"LI(x{ones_reg}, -1)",
+            f"LI(x{mask_reg}, {HEDELEG_P113_WRITABLE:#x})",
+            test_data.add_testcase("hedeleg_p113_writable", "cp_hcsr_access", covergroup),
+            f"csrw hedeleg, x{ones_reg}",
+            gen_csr_read_sigupd(check_reg, ("hedeleg", HEDELEG_P113_WRITABLE), test_data, mask_reg),
+            f"csrw hedeleg, x{save_reg}",
+        ]
+        test_data.int_regs.return_registers([save_reg, ones_reg, check_reg, mask_reg])
+        tc.code.extend(gated(lines, P113_GATE))
 
     tc = test_data.new_test_chunk(test_chunks, "hcsr_walk")
     tc.section_header = comment_banner(

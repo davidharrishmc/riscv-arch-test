@@ -19,7 +19,8 @@ from testgen.data.state import TestData
 from testgen.priv.extensions.ExceptionsCommon import DELEGATED_FAULT_KINDS, generate_delegated_fault_tests
 from testgen.priv.extensions.HCommon import gated
 
-# hedeleg bits 0-8, 12, 13, 15, 18 and 19, which the spec requires to be writable (bit 0 only with IALIGN = 32)
+# hedeleg bits 0-8, 12, 13, 15, 18 and 19, which the spec requires to be writable (bit 0 only with IALIGN = 32;
+# bits 18 and 19 only from Priv 1.13).  The tests write these values but never read hedeleg back.
 HEDELEG_WRITABLE = 0xCB1FF
 
 # hedeleg values: none, each of bits 0-8 alone, and all writable bits

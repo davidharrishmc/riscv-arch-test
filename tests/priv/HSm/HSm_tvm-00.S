@@ -34,53 +34,53 @@ RVTEST_BEGIN
 //   Read and write satp, hgatp and vsatp in HS-mode with mstatus.TVM = 0, 1.  TVM = 1 traps satp and
 //   hgatp accesses but not vsatp accesses
 /////////////////////////////////
-  LI(x15, MSTATUS_TVM)
-  csrc mstatus, x15
+  LI(x14, MSTATUS_TVM)
+  csrc mstatus, x14
   RVTEST_TSBI_GOTO_SMODE
-  LI(x14, 42)
+  LI(x15, 42)
 HSm_tvm_cg_cp_tvm_hs_satp_read_tvm0:
-  csrr x14, satp
-  # Check if x14 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x14, HSm_tvm_cg_cp_tvm_hs_satp_read_tvm0, HSm_tvm_cg_cp_tvm_hs_satp_read_tvm0_str)
+  csrr x15, satp
+  # Check if x15 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x15, HSm_tvm_cg_cp_tvm_hs_satp_read_tvm0, HSm_tvm_cg_cp_tvm_hs_satp_read_tvm0_str)
 HSm_tvm_cg_cp_tvm_hs_satp_write_tvm0:
   csrw satp, zero
-  LI(x14, 42)
+  LI(x15, 42)
 HSm_tvm_cg_cp_tvm_hs_hgatp_read_tvm0:
-  csrr x14, hgatp
-  # Check if x14 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x14, HSm_tvm_cg_cp_tvm_hs_hgatp_read_tvm0, HSm_tvm_cg_cp_tvm_hs_hgatp_read_tvm0_str)
+  csrr x15, hgatp
+  # Check if x15 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x15, HSm_tvm_cg_cp_tvm_hs_hgatp_read_tvm0, HSm_tvm_cg_cp_tvm_hs_hgatp_read_tvm0_str)
 HSm_tvm_cg_cp_tvm_hs_hgatp_write_tvm0:
   csrw hgatp, zero
-  LI(x14, 42)
+  LI(x15, 42)
 HSm_tvm_cg_cp_tvm_hs_vsatp_read_tvm0:
-  csrr x14, vsatp
-  # Check if x14 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x14, HSm_tvm_cg_cp_tvm_hs_vsatp_read_tvm0, HSm_tvm_cg_cp_tvm_hs_vsatp_read_tvm0_str)
+  csrr x15, vsatp
+  # Check if x15 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x15, HSm_tvm_cg_cp_tvm_hs_vsatp_read_tvm0, HSm_tvm_cg_cp_tvm_hs_vsatp_read_tvm0_str)
 HSm_tvm_cg_cp_tvm_hs_vsatp_write_tvm0:
   csrw vsatp, zero
   RVTEST_TSBI_GOTO_MMODE
-  LI(x15, MSTATUS_TVM)
-  csrs mstatus, x15
+  LI(x14, MSTATUS_TVM)
+  csrs mstatus, x14
   RVTEST_TSBI_GOTO_SMODE
-  LI(x14, 42)
+  LI(x15, 42)
 HSm_tvm_cg_cp_tvm_hs_satp_read_tvm1:
-  csrr x14, satp
-  # Check if x14 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x14, HSm_tvm_cg_cp_tvm_hs_satp_read_tvm1, HSm_tvm_cg_cp_tvm_hs_satp_read_tvm1_str)
+  csrr x15, satp
+  # Check if x15 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x15, HSm_tvm_cg_cp_tvm_hs_satp_read_tvm1, HSm_tvm_cg_cp_tvm_hs_satp_read_tvm1_str)
 HSm_tvm_cg_cp_tvm_hs_satp_write_tvm1:
   csrw satp, zero
-  LI(x14, 42)
+  LI(x15, 42)
 HSm_tvm_cg_cp_tvm_hs_hgatp_read_tvm1:
-  csrr x14, hgatp
-  # Check if x14 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x14, HSm_tvm_cg_cp_tvm_hs_hgatp_read_tvm1, HSm_tvm_cg_cp_tvm_hs_hgatp_read_tvm1_str)
+  csrr x15, hgatp
+  # Check if x15 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x15, HSm_tvm_cg_cp_tvm_hs_hgatp_read_tvm1, HSm_tvm_cg_cp_tvm_hs_hgatp_read_tvm1_str)
 HSm_tvm_cg_cp_tvm_hs_hgatp_write_tvm1:
   csrw hgatp, zero
-  LI(x14, 42)
+  LI(x15, 42)
 HSm_tvm_cg_cp_tvm_hs_vsatp_read_tvm1:
-  csrr x14, vsatp
-  # Check if x14 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x14, HSm_tvm_cg_cp_tvm_hs_vsatp_read_tvm1, HSm_tvm_cg_cp_tvm_hs_vsatp_read_tvm1_str)
+  csrr x15, vsatp
+  # Check if x15 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x15, HSm_tvm_cg_cp_tvm_hs_vsatp_read_tvm1, HSm_tvm_cg_cp_tvm_hs_vsatp_read_tvm1_str)
 HSm_tvm_cg_cp_tvm_hs_vsatp_write_tvm1:
   csrw vsatp, zero
   RVTEST_TSBI_GOTO_MMODE
@@ -91,55 +91,55 @@ HSm_tvm_cg_cp_tvm_hs_vsatp_write_tvm1:
 //   Read and write satp in VS-mode with mstatus.TVM = 0, 1 and hstatus.VTVM = 0, 1.
 //   VTVM = 1 raises virtual instruction; TVM does not affect VS-mode
 /////////////////////////////////
-  LI(x15, MSTATUS_TVM)
-  csrc mstatus, x15
-  LI(x15, HSTATUS_VTVM)
-  csrc hstatus, x15
+  LI(x14, MSTATUS_TVM)
+  csrc mstatus, x14
+  LI(x14, HSTATUS_VTVM)
+  csrc hstatus, x14
   RVTEST_TSBI_GOTO_VSMODE
-  LI(x14, 42)
+  LI(x15, 42)
 HSm_tvm_cg_cp_tvm_vs_satp_read_tvm0_vtvm0:
-  csrr x14, satp
-  # Check if x14 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x14, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm0_vtvm0, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm0_vtvm0_str)
+  csrr x15, satp
+  # Check if x15 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x15, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm0_vtvm0, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm0_vtvm0_str)
 HSm_tvm_cg_cp_tvm_vs_satp_write_tvm0_vtvm0:
   csrw satp, zero
   RVTEST_TSBI_GOTO_MMODE
-  LI(x15, MSTATUS_TVM)
-  csrc mstatus, x15
-  LI(x15, HSTATUS_VTVM)
-  csrs hstatus, x15
+  LI(x14, MSTATUS_TVM)
+  csrc mstatus, x14
+  LI(x14, HSTATUS_VTVM)
+  csrs hstatus, x14
   RVTEST_TSBI_GOTO_VSMODE
-  LI(x14, 42)
+  LI(x15, 42)
 HSm_tvm_cg_cp_tvm_vs_satp_read_tvm0_vtvm1:
-  csrr x14, satp
-  # Check if x14 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x14, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm0_vtvm1, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm0_vtvm1_str)
+  csrr x15, satp
+  # Check if x15 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x15, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm0_vtvm1, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm0_vtvm1_str)
 HSm_tvm_cg_cp_tvm_vs_satp_write_tvm0_vtvm1:
   csrw satp, zero
   RVTEST_TSBI_GOTO_MMODE
-  LI(x15, MSTATUS_TVM)
-  csrs mstatus, x15
-  LI(x15, HSTATUS_VTVM)
-  csrc hstatus, x15
+  LI(x14, MSTATUS_TVM)
+  csrs mstatus, x14
+  LI(x14, HSTATUS_VTVM)
+  csrc hstatus, x14
   RVTEST_TSBI_GOTO_VSMODE
-  LI(x14, 42)
+  LI(x15, 42)
 HSm_tvm_cg_cp_tvm_vs_satp_read_tvm1_vtvm0:
-  csrr x14, satp
-  # Check if x14 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x14, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm1_vtvm0, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm1_vtvm0_str)
+  csrr x15, satp
+  # Check if x15 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x15, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm1_vtvm0, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm1_vtvm0_str)
 HSm_tvm_cg_cp_tvm_vs_satp_write_tvm1_vtvm0:
   csrw satp, zero
   RVTEST_TSBI_GOTO_MMODE
-  LI(x15, MSTATUS_TVM)
-  csrs mstatus, x15
-  LI(x15, HSTATUS_VTVM)
-  csrs hstatus, x15
+  LI(x14, MSTATUS_TVM)
+  csrs mstatus, x14
+  LI(x14, HSTATUS_VTVM)
+  csrs hstatus, x14
   RVTEST_TSBI_GOTO_VSMODE
-  LI(x14, 42)
+  LI(x15, 42)
 HSm_tvm_cg_cp_tvm_vs_satp_read_tvm1_vtvm1:
-  csrr x14, satp
-  # Check if x14 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x14, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm1_vtvm1, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm1_vtvm1_str)
+  csrr x15, satp
+  # Check if x15 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x15, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm1_vtvm1, HSm_tvm_cg_cp_tvm_vs_satp_read_tvm1_vtvm1_str)
 HSm_tvm_cg_cp_tvm_vs_satp_write_tvm1_vtvm1:
   csrw satp, zero
   RVTEST_TSBI_GOTO_MMODE
@@ -150,10 +150,10 @@ HSm_tvm_cg_cp_tvm_vs_satp_write_tvm1_vtvm1:
 //   Execute hfence.vvma, hfence.gvma and sfence.vma in M, HS, VS, U and VU modes with
 //   mstatus.TVM = 0, 1 and hstatus.VTVM = 0, 1
 /////////////////////////////////
-  LI(x15, MSTATUS_TVM)
-  csrc mstatus, x15
-  LI(x15, HSTATUS_VTVM)
-  csrc hstatus, x15
+  LI(x14, MSTATUS_TVM)
+  csrc mstatus, x14
+  LI(x14, HSTATUS_VTVM)
+  csrc hstatus, x14
 HSm_tvm_cg_cp_hfence_hfence_vvma_m_tvm0_vtvm0:
   hfence.vvma
 HSm_tvm_cg_cp_hfence_hfence_gvma_m_tvm0_vtvm0:
@@ -192,10 +192,10 @@ HSm_tvm_cg_cp_hfence_hfence_gvma_vu_tvm0_vtvm0:
 HSm_tvm_cg_cp_sfence_sfence_vma_vu_tvm0_vtvm0:
   sfence.vma
   RVTEST_TSBI_GOTO_MMODE
-  LI(x15, MSTATUS_TVM)
-  csrc mstatus, x15
-  LI(x15, HSTATUS_VTVM)
-  csrs hstatus, x15
+  LI(x14, MSTATUS_TVM)
+  csrc mstatus, x14
+  LI(x14, HSTATUS_VTVM)
+  csrs hstatus, x14
 HSm_tvm_cg_cp_hfence_hfence_vvma_m_tvm0_vtvm1:
   hfence.vvma
 HSm_tvm_cg_cp_hfence_hfence_gvma_m_tvm0_vtvm1:
@@ -234,10 +234,10 @@ HSm_tvm_cg_cp_hfence_hfence_gvma_vu_tvm0_vtvm1:
 HSm_tvm_cg_cp_sfence_sfence_vma_vu_tvm0_vtvm1:
   sfence.vma
   RVTEST_TSBI_GOTO_MMODE
-  LI(x15, MSTATUS_TVM)
-  csrs mstatus, x15
-  LI(x15, HSTATUS_VTVM)
-  csrc hstatus, x15
+  LI(x14, MSTATUS_TVM)
+  csrs mstatus, x14
+  LI(x14, HSTATUS_VTVM)
+  csrc hstatus, x14
 HSm_tvm_cg_cp_hfence_hfence_vvma_m_tvm1_vtvm0:
   hfence.vvma
 HSm_tvm_cg_cp_hfence_hfence_gvma_m_tvm1_vtvm0:
@@ -276,10 +276,10 @@ HSm_tvm_cg_cp_hfence_hfence_gvma_vu_tvm1_vtvm0:
 HSm_tvm_cg_cp_sfence_sfence_vma_vu_tvm1_vtvm0:
   sfence.vma
   RVTEST_TSBI_GOTO_MMODE
-  LI(x15, MSTATUS_TVM)
-  csrs mstatus, x15
-  LI(x15, HSTATUS_VTVM)
-  csrs hstatus, x15
+  LI(x14, MSTATUS_TVM)
+  csrs mstatus, x14
+  LI(x14, HSTATUS_VTVM)
+  csrs hstatus, x14
 HSm_tvm_cg_cp_hfence_hfence_vvma_m_tvm1_vtvm1:
   hfence.vvma
 HSm_tvm_cg_cp_hfence_hfence_gvma_m_tvm1_vtvm1:
@@ -318,10 +318,10 @@ HSm_tvm_cg_cp_hfence_hfence_gvma_vu_tvm1_vtvm1:
 HSm_tvm_cg_cp_sfence_sfence_vma_vu_tvm1_vtvm1:
   sfence.vma
   RVTEST_TSBI_GOTO_MMODE
-  LI(x15, MSTATUS_TVM)
-  csrc mstatus, x15
-  LI(x15, HSTATUS_VTVM)
-  csrc hstatus, x15
+  LI(x14, MSTATUS_TVM)
+  csrc mstatus, x14
+  LI(x14, HSTATUS_VTVM)
+  csrc hstatus, x14
 
 // Instantiate trap handlers and other epilog code, call RVMODEL_HALT at end of test
 RVTEST_CODE_END
@@ -333,86 +333,86 @@ RVTEST_DATA_BEGIN
 
 
 // Testcase strings
-HSm_tvm_cg_cp_tvm_hs_satp_read_tvm0_str: .string "\"test: 3040; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: satp_read_tvm0\""
-HSm_tvm_cg_cp_tvm_hs_satp_write_tvm0_str: .string "\"test: 3041; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: satp_write_tvm0\""
-HSm_tvm_cg_cp_tvm_hs_hgatp_read_tvm0_str: .string "\"test: 3042; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: hgatp_read_tvm0\""
-HSm_tvm_cg_cp_tvm_hs_hgatp_write_tvm0_str: .string "\"test: 3043; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: hgatp_write_tvm0\""
-HSm_tvm_cg_cp_tvm_hs_vsatp_read_tvm0_str: .string "\"test: 3044; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: vsatp_read_tvm0\""
-HSm_tvm_cg_cp_tvm_hs_vsatp_write_tvm0_str: .string "\"test: 3045; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: vsatp_write_tvm0\""
-HSm_tvm_cg_cp_tvm_hs_satp_read_tvm1_str: .string "\"test: 3046; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: satp_read_tvm1\""
-HSm_tvm_cg_cp_tvm_hs_satp_write_tvm1_str: .string "\"test: 3047; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: satp_write_tvm1\""
-HSm_tvm_cg_cp_tvm_hs_hgatp_read_tvm1_str: .string "\"test: 3048; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: hgatp_read_tvm1\""
-HSm_tvm_cg_cp_tvm_hs_hgatp_write_tvm1_str: .string "\"test: 3049; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: hgatp_write_tvm1\""
-HSm_tvm_cg_cp_tvm_hs_vsatp_read_tvm1_str: .string "\"test: 3050; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: vsatp_read_tvm1\""
-HSm_tvm_cg_cp_tvm_hs_vsatp_write_tvm1_str: .string "\"test: 3051; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: vsatp_write_tvm1\""
-HSm_tvm_cg_cp_tvm_vs_satp_read_tvm0_vtvm0_str: .string "\"test: 3052; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_read_tvm0_vtvm0\""
-HSm_tvm_cg_cp_tvm_vs_satp_write_tvm0_vtvm0_str: .string "\"test: 3053; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_write_tvm0_vtvm0\""
-HSm_tvm_cg_cp_tvm_vs_satp_read_tvm0_vtvm1_str: .string "\"test: 3054; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_read_tvm0_vtvm1\""
-HSm_tvm_cg_cp_tvm_vs_satp_write_tvm0_vtvm1_str: .string "\"test: 3055; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_write_tvm0_vtvm1\""
-HSm_tvm_cg_cp_tvm_vs_satp_read_tvm1_vtvm0_str: .string "\"test: 3056; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_read_tvm1_vtvm0\""
-HSm_tvm_cg_cp_tvm_vs_satp_write_tvm1_vtvm0_str: .string "\"test: 3057; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_write_tvm1_vtvm0\""
-HSm_tvm_cg_cp_tvm_vs_satp_read_tvm1_vtvm1_str: .string "\"test: 3058; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_read_tvm1_vtvm1\""
-HSm_tvm_cg_cp_tvm_vs_satp_write_tvm1_vtvm1_str: .string "\"test: 3059; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_write_tvm1_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_m_tvm0_vtvm0_str: .string "\"test: 3060; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_m_tvm0_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_m_tvm0_vtvm0_str: .string "\"test: 3061; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_m_tvm0_vtvm0\""
-HSm_tvm_cg_cp_sfence_sfence_vma_m_tvm0_vtvm0_str: .string "\"test: 3062; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_m_tvm0_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_s_tvm0_vtvm0_str: .string "\"test: 3063; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_s_tvm0_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_s_tvm0_vtvm0_str: .string "\"test: 3064; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_s_tvm0_vtvm0\""
-HSm_tvm_cg_cp_sfence_sfence_vma_s_tvm0_vtvm0_str: .string "\"test: 3065; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_s_tvm0_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_vs_tvm0_vtvm0_str: .string "\"test: 3066; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vs_tvm0_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_vs_tvm0_vtvm0_str: .string "\"test: 3067; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vs_tvm0_vtvm0\""
-HSm_tvm_cg_cp_sfence_sfence_vma_vs_tvm0_vtvm0_str: .string "\"test: 3068; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vs_tvm0_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_u_tvm0_vtvm0_str: .string "\"test: 3069; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_u_tvm0_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_u_tvm0_vtvm0_str: .string "\"test: 3070; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_u_tvm0_vtvm0\""
-HSm_tvm_cg_cp_sfence_sfence_vma_u_tvm0_vtvm0_str: .string "\"test: 3071; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_u_tvm0_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_vu_tvm0_vtvm0_str: .string "\"test: 3072; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vu_tvm0_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_vu_tvm0_vtvm0_str: .string "\"test: 3073; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vu_tvm0_vtvm0\""
-HSm_tvm_cg_cp_sfence_sfence_vma_vu_tvm0_vtvm0_str: .string "\"test: 3074; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vu_tvm0_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_m_tvm0_vtvm1_str: .string "\"test: 3075; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_m_tvm0_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_m_tvm0_vtvm1_str: .string "\"test: 3076; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_m_tvm0_vtvm1\""
-HSm_tvm_cg_cp_sfence_sfence_vma_m_tvm0_vtvm1_str: .string "\"test: 3077; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_m_tvm0_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_s_tvm0_vtvm1_str: .string "\"test: 3078; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_s_tvm0_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_s_tvm0_vtvm1_str: .string "\"test: 3079; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_s_tvm0_vtvm1\""
-HSm_tvm_cg_cp_sfence_sfence_vma_s_tvm0_vtvm1_str: .string "\"test: 3080; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_s_tvm0_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_vs_tvm0_vtvm1_str: .string "\"test: 3081; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vs_tvm0_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_vs_tvm0_vtvm1_str: .string "\"test: 3082; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vs_tvm0_vtvm1\""
-HSm_tvm_cg_cp_sfence_sfence_vma_vs_tvm0_vtvm1_str: .string "\"test: 3083; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vs_tvm0_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_u_tvm0_vtvm1_str: .string "\"test: 3084; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_u_tvm0_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_u_tvm0_vtvm1_str: .string "\"test: 3085; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_u_tvm0_vtvm1\""
-HSm_tvm_cg_cp_sfence_sfence_vma_u_tvm0_vtvm1_str: .string "\"test: 3086; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_u_tvm0_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_vu_tvm0_vtvm1_str: .string "\"test: 3087; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vu_tvm0_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_vu_tvm0_vtvm1_str: .string "\"test: 3088; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vu_tvm0_vtvm1\""
-HSm_tvm_cg_cp_sfence_sfence_vma_vu_tvm0_vtvm1_str: .string "\"test: 3089; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vu_tvm0_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_m_tvm1_vtvm0_str: .string "\"test: 3090; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_m_tvm1_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_m_tvm1_vtvm0_str: .string "\"test: 3091; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_m_tvm1_vtvm0\""
-HSm_tvm_cg_cp_sfence_sfence_vma_m_tvm1_vtvm0_str: .string "\"test: 3092; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_m_tvm1_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_s_tvm1_vtvm0_str: .string "\"test: 3093; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_s_tvm1_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_s_tvm1_vtvm0_str: .string "\"test: 3094; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_s_tvm1_vtvm0\""
-HSm_tvm_cg_cp_sfence_sfence_vma_s_tvm1_vtvm0_str: .string "\"test: 3095; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_s_tvm1_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_vs_tvm1_vtvm0_str: .string "\"test: 3096; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vs_tvm1_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_vs_tvm1_vtvm0_str: .string "\"test: 3097; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vs_tvm1_vtvm0\""
-HSm_tvm_cg_cp_sfence_sfence_vma_vs_tvm1_vtvm0_str: .string "\"test: 3098; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vs_tvm1_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_u_tvm1_vtvm0_str: .string "\"test: 3099; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_u_tvm1_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_u_tvm1_vtvm0_str: .string "\"test: 3100; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_u_tvm1_vtvm0\""
-HSm_tvm_cg_cp_sfence_sfence_vma_u_tvm1_vtvm0_str: .string "\"test: 3101; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_u_tvm1_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_vu_tvm1_vtvm0_str: .string "\"test: 3102; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vu_tvm1_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_vu_tvm1_vtvm0_str: .string "\"test: 3103; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vu_tvm1_vtvm0\""
-HSm_tvm_cg_cp_sfence_sfence_vma_vu_tvm1_vtvm0_str: .string "\"test: 3104; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vu_tvm1_vtvm0\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_m_tvm1_vtvm1_str: .string "\"test: 3105; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_m_tvm1_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_m_tvm1_vtvm1_str: .string "\"test: 3106; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_m_tvm1_vtvm1\""
-HSm_tvm_cg_cp_sfence_sfence_vma_m_tvm1_vtvm1_str: .string "\"test: 3107; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_m_tvm1_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_s_tvm1_vtvm1_str: .string "\"test: 3108; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_s_tvm1_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_s_tvm1_vtvm1_str: .string "\"test: 3109; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_s_tvm1_vtvm1\""
-HSm_tvm_cg_cp_sfence_sfence_vma_s_tvm1_vtvm1_str: .string "\"test: 3110; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_s_tvm1_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_vs_tvm1_vtvm1_str: .string "\"test: 3111; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vs_tvm1_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_vs_tvm1_vtvm1_str: .string "\"test: 3112; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vs_tvm1_vtvm1\""
-HSm_tvm_cg_cp_sfence_sfence_vma_vs_tvm1_vtvm1_str: .string "\"test: 3113; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vs_tvm1_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_u_tvm1_vtvm1_str: .string "\"test: 3114; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_u_tvm1_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_u_tvm1_vtvm1_str: .string "\"test: 3115; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_u_tvm1_vtvm1\""
-HSm_tvm_cg_cp_sfence_sfence_vma_u_tvm1_vtvm1_str: .string "\"test: 3116; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_u_tvm1_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_vvma_vu_tvm1_vtvm1_str: .string "\"test: 3117; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vu_tvm1_vtvm1\""
-HSm_tvm_cg_cp_hfence_hfence_gvma_vu_tvm1_vtvm1_str: .string "\"test: 3118; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vu_tvm1_vtvm1\""
-HSm_tvm_cg_cp_sfence_sfence_vma_vu_tvm1_vtvm1_str: .string "\"test: 3119; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vu_tvm1_vtvm1\""
+HSm_tvm_cg_cp_tvm_hs_satp_read_tvm0_str: .string "\"test: 3041; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: satp_read_tvm0\""
+HSm_tvm_cg_cp_tvm_hs_satp_write_tvm0_str: .string "\"test: 3042; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: satp_write_tvm0\""
+HSm_tvm_cg_cp_tvm_hs_hgatp_read_tvm0_str: .string "\"test: 3043; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: hgatp_read_tvm0\""
+HSm_tvm_cg_cp_tvm_hs_hgatp_write_tvm0_str: .string "\"test: 3044; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: hgatp_write_tvm0\""
+HSm_tvm_cg_cp_tvm_hs_vsatp_read_tvm0_str: .string "\"test: 3045; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: vsatp_read_tvm0\""
+HSm_tvm_cg_cp_tvm_hs_vsatp_write_tvm0_str: .string "\"test: 3046; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: vsatp_write_tvm0\""
+HSm_tvm_cg_cp_tvm_hs_satp_read_tvm1_str: .string "\"test: 3047; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: satp_read_tvm1\""
+HSm_tvm_cg_cp_tvm_hs_satp_write_tvm1_str: .string "\"test: 3048; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: satp_write_tvm1\""
+HSm_tvm_cg_cp_tvm_hs_hgatp_read_tvm1_str: .string "\"test: 3049; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: hgatp_read_tvm1\""
+HSm_tvm_cg_cp_tvm_hs_hgatp_write_tvm1_str: .string "\"test: 3050; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: hgatp_write_tvm1\""
+HSm_tvm_cg_cp_tvm_hs_vsatp_read_tvm1_str: .string "\"test: 3051; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: vsatp_read_tvm1\""
+HSm_tvm_cg_cp_tvm_hs_vsatp_write_tvm1_str: .string "\"test: 3052; cg: HSm_tvm_cg; cp: cp_tvm_hs; bin: vsatp_write_tvm1\""
+HSm_tvm_cg_cp_tvm_vs_satp_read_tvm0_vtvm0_str: .string "\"test: 3053; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_read_tvm0_vtvm0\""
+HSm_tvm_cg_cp_tvm_vs_satp_write_tvm0_vtvm0_str: .string "\"test: 3054; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_write_tvm0_vtvm0\""
+HSm_tvm_cg_cp_tvm_vs_satp_read_tvm0_vtvm1_str: .string "\"test: 3055; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_read_tvm0_vtvm1\""
+HSm_tvm_cg_cp_tvm_vs_satp_write_tvm0_vtvm1_str: .string "\"test: 3056; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_write_tvm0_vtvm1\""
+HSm_tvm_cg_cp_tvm_vs_satp_read_tvm1_vtvm0_str: .string "\"test: 3057; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_read_tvm1_vtvm0\""
+HSm_tvm_cg_cp_tvm_vs_satp_write_tvm1_vtvm0_str: .string "\"test: 3058; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_write_tvm1_vtvm0\""
+HSm_tvm_cg_cp_tvm_vs_satp_read_tvm1_vtvm1_str: .string "\"test: 3059; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_read_tvm1_vtvm1\""
+HSm_tvm_cg_cp_tvm_vs_satp_write_tvm1_vtvm1_str: .string "\"test: 3060; cg: HSm_tvm_cg; cp: cp_tvm_vs; bin: satp_write_tvm1_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_m_tvm0_vtvm0_str: .string "\"test: 3061; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_m_tvm0_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_m_tvm0_vtvm0_str: .string "\"test: 3062; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_m_tvm0_vtvm0\""
+HSm_tvm_cg_cp_sfence_sfence_vma_m_tvm0_vtvm0_str: .string "\"test: 3063; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_m_tvm0_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_s_tvm0_vtvm0_str: .string "\"test: 3064; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_s_tvm0_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_s_tvm0_vtvm0_str: .string "\"test: 3065; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_s_tvm0_vtvm0\""
+HSm_tvm_cg_cp_sfence_sfence_vma_s_tvm0_vtvm0_str: .string "\"test: 3066; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_s_tvm0_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_vs_tvm0_vtvm0_str: .string "\"test: 3067; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vs_tvm0_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_vs_tvm0_vtvm0_str: .string "\"test: 3068; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vs_tvm0_vtvm0\""
+HSm_tvm_cg_cp_sfence_sfence_vma_vs_tvm0_vtvm0_str: .string "\"test: 3069; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vs_tvm0_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_u_tvm0_vtvm0_str: .string "\"test: 3070; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_u_tvm0_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_u_tvm0_vtvm0_str: .string "\"test: 3071; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_u_tvm0_vtvm0\""
+HSm_tvm_cg_cp_sfence_sfence_vma_u_tvm0_vtvm0_str: .string "\"test: 3072; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_u_tvm0_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_vu_tvm0_vtvm0_str: .string "\"test: 3073; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vu_tvm0_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_vu_tvm0_vtvm0_str: .string "\"test: 3074; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vu_tvm0_vtvm0\""
+HSm_tvm_cg_cp_sfence_sfence_vma_vu_tvm0_vtvm0_str: .string "\"test: 3075; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vu_tvm0_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_m_tvm0_vtvm1_str: .string "\"test: 3076; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_m_tvm0_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_m_tvm0_vtvm1_str: .string "\"test: 3077; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_m_tvm0_vtvm1\""
+HSm_tvm_cg_cp_sfence_sfence_vma_m_tvm0_vtvm1_str: .string "\"test: 3078; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_m_tvm0_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_s_tvm0_vtvm1_str: .string "\"test: 3079; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_s_tvm0_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_s_tvm0_vtvm1_str: .string "\"test: 3080; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_s_tvm0_vtvm1\""
+HSm_tvm_cg_cp_sfence_sfence_vma_s_tvm0_vtvm1_str: .string "\"test: 3081; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_s_tvm0_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_vs_tvm0_vtvm1_str: .string "\"test: 3082; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vs_tvm0_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_vs_tvm0_vtvm1_str: .string "\"test: 3083; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vs_tvm0_vtvm1\""
+HSm_tvm_cg_cp_sfence_sfence_vma_vs_tvm0_vtvm1_str: .string "\"test: 3084; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vs_tvm0_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_u_tvm0_vtvm1_str: .string "\"test: 3085; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_u_tvm0_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_u_tvm0_vtvm1_str: .string "\"test: 3086; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_u_tvm0_vtvm1\""
+HSm_tvm_cg_cp_sfence_sfence_vma_u_tvm0_vtvm1_str: .string "\"test: 3087; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_u_tvm0_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_vu_tvm0_vtvm1_str: .string "\"test: 3088; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vu_tvm0_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_vu_tvm0_vtvm1_str: .string "\"test: 3089; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vu_tvm0_vtvm1\""
+HSm_tvm_cg_cp_sfence_sfence_vma_vu_tvm0_vtvm1_str: .string "\"test: 3090; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vu_tvm0_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_m_tvm1_vtvm0_str: .string "\"test: 3091; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_m_tvm1_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_m_tvm1_vtvm0_str: .string "\"test: 3092; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_m_tvm1_vtvm0\""
+HSm_tvm_cg_cp_sfence_sfence_vma_m_tvm1_vtvm0_str: .string "\"test: 3093; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_m_tvm1_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_s_tvm1_vtvm0_str: .string "\"test: 3094; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_s_tvm1_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_s_tvm1_vtvm0_str: .string "\"test: 3095; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_s_tvm1_vtvm0\""
+HSm_tvm_cg_cp_sfence_sfence_vma_s_tvm1_vtvm0_str: .string "\"test: 3096; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_s_tvm1_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_vs_tvm1_vtvm0_str: .string "\"test: 3097; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vs_tvm1_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_vs_tvm1_vtvm0_str: .string "\"test: 3098; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vs_tvm1_vtvm0\""
+HSm_tvm_cg_cp_sfence_sfence_vma_vs_tvm1_vtvm0_str: .string "\"test: 3099; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vs_tvm1_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_u_tvm1_vtvm0_str: .string "\"test: 3100; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_u_tvm1_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_u_tvm1_vtvm0_str: .string "\"test: 3101; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_u_tvm1_vtvm0\""
+HSm_tvm_cg_cp_sfence_sfence_vma_u_tvm1_vtvm0_str: .string "\"test: 3102; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_u_tvm1_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_vu_tvm1_vtvm0_str: .string "\"test: 3103; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vu_tvm1_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_vu_tvm1_vtvm0_str: .string "\"test: 3104; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vu_tvm1_vtvm0\""
+HSm_tvm_cg_cp_sfence_sfence_vma_vu_tvm1_vtvm0_str: .string "\"test: 3105; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vu_tvm1_vtvm0\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_m_tvm1_vtvm1_str: .string "\"test: 3106; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_m_tvm1_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_m_tvm1_vtvm1_str: .string "\"test: 3107; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_m_tvm1_vtvm1\""
+HSm_tvm_cg_cp_sfence_sfence_vma_m_tvm1_vtvm1_str: .string "\"test: 3108; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_m_tvm1_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_s_tvm1_vtvm1_str: .string "\"test: 3109; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_s_tvm1_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_s_tvm1_vtvm1_str: .string "\"test: 3110; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_s_tvm1_vtvm1\""
+HSm_tvm_cg_cp_sfence_sfence_vma_s_tvm1_vtvm1_str: .string "\"test: 3111; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_s_tvm1_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_vs_tvm1_vtvm1_str: .string "\"test: 3112; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vs_tvm1_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_vs_tvm1_vtvm1_str: .string "\"test: 3113; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vs_tvm1_vtvm1\""
+HSm_tvm_cg_cp_sfence_sfence_vma_vs_tvm1_vtvm1_str: .string "\"test: 3114; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vs_tvm1_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_u_tvm1_vtvm1_str: .string "\"test: 3115; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_u_tvm1_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_u_tvm1_vtvm1_str: .string "\"test: 3116; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_u_tvm1_vtvm1\""
+HSm_tvm_cg_cp_sfence_sfence_vma_u_tvm1_vtvm1_str: .string "\"test: 3117; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_u_tvm1_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_vvma_vu_tvm1_vtvm1_str: .string "\"test: 3118; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_vvma_vu_tvm1_vtvm1\""
+HSm_tvm_cg_cp_hfence_hfence_gvma_vu_tvm1_vtvm1_str: .string "\"test: 3119; cg: HSm_tvm_cg; cp: cp_hfence; bin: hfence_gvma_vu_tvm1_vtvm1\""
+HSm_tvm_cg_cp_sfence_sfence_vma_vu_tvm1_vtvm1_str: .string "\"test: 3120; cg: HSm_tvm_cg; cp: cp_sfence; bin: sfence_vma_vu_tvm1_vtvm1\""
 
 // End of test data section and model specific data
 RVTEST_DATA_END

@@ -33,181 +33,181 @@ RVTEST_BEGIN
 // cp_replica
 //   Write different values to each S CSR and its VS replica, then read both
 /////////////////////////////////
-  LI(x15, MIP_S_MASK)
-  csrw mideleg, x15    # sie and sip show only delegated interrupts
-  LI(x15, MIP_VS_MASK)
-  csrw hideleg, x15    # vsie and vsip show only delegated interrupts
-  csrr x9, sstatus
-  csrr x8, vsstatus
+  LI(x6, MIP_S_MASK)
+  csrw mideleg, x6    # sie and sip show only delegated interrupts
+  LI(x6, MIP_VS_MASK)
+  csrw hideleg, x6    # vsie and vsip show only delegated interrupts
+  csrr x8, sstatus
+  csrr x9, vsstatus
+  LI(x15, 0xc0120)
+  csrr x6, sstatus
   LI(x14, 0xc0120)
-  csrr x15, sstatus
-  LI(x6, 0xc0120)
-  or x15, x15, x6
-  xor x15, x15, x6
-  LI(x6, 0x40020)
-  or x15, x15, x6
-  csrw sstatus, x15
-  csrr x15, vsstatus
-  LI(x6, 0xc0120)
-  or x15, x15, x6
-  xor x15, x15, x6
-  LI(x6, 0x80100)
-  or x15, x15, x6
-  csrw vsstatus, x15
+  or x6, x6, x14
+  xor x6, x6, x14
+  LI(x14, 0x40020)
+  or x6, x6, x14
+  csrw sstatus, x6
+  csrr x6, vsstatus
+  LI(x13, 0xc0120)
+  or x6, x6, x13
+  xor x6, x6, x13
+  LI(x13, 0x80100)
+  or x6, x6, x13
+  csrw vsstatus, x6
 HSm_mcsr_cg_cp_replica_sstatus:
   # Read sstatus into x13, keep only bits specified by mask, and check against expected.
   csrr x13, sstatus    # Read CSR
-  and x13, x13, x14    # keep only masked bits 0xc0120
+  and x13, x13, x15    # keep only masked bits 0xc0120
   # Check if x13 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
   RVTEST_SIGUPD(x2, x5, x4, x13, HSm_mcsr_cg_cp_replica_sstatus, HSm_mcsr_cg_cp_replica_sstatus_str)
 HSm_mcsr_cg_cp_replica_vsstatus:
   # Read vsstatus into x13, keep only bits specified by mask, and check against expected.
   csrr x13, vsstatus    # Read CSR
-  and x13, x13, x14    # keep only masked bits 0xc0120
+  and x13, x13, x15    # keep only masked bits 0xc0120
   # Check if x13 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
   RVTEST_SIGUPD(x2, x5, x4, x13, HSm_mcsr_cg_cp_replica_vsstatus, HSm_mcsr_cg_cp_replica_vsstatus_str)
-  csrw sstatus, x9
-  csrw vsstatus, x8
-  csrr x9, sie
-  csrr x8, vsie
-  LI(x14, 0x222)
-  LI(x15, 0x200)
-  csrw sie, x15
-  LI(x15, 0x0)
-  csrw vsie, x15
+  csrw sstatus, x8
+  csrw vsstatus, x9
+  csrr x8, sie
+  csrr x9, vsie
+  LI(x15, 0x222)
+  LI(x6, 0x200)
+  csrw sie, x6
+  LI(x6, 0x0)
+  csrw vsie, x6
 HSm_mcsr_cg_cp_replica_sie:
-  # Read sie into x6, keep only bits specified by mask, and check against expected.
-  csrr x6, sie    # Read CSR
-  and x6, x6, x14    # keep only masked bits 0x222
-  # Check if x6 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x6, HSm_mcsr_cg_cp_replica_sie, HSm_mcsr_cg_cp_replica_sie_str)
+  # Read sie into x13, keep only bits specified by mask, and check against expected.
+  csrr x13, sie    # Read CSR
+  and x13, x13, x15    # keep only masked bits 0x222
+  # Check if x13 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x13, HSm_mcsr_cg_cp_replica_sie, HSm_mcsr_cg_cp_replica_sie_str)
 HSm_mcsr_cg_cp_replica_vsie:
-  # Read vsie into x6, keep only bits specified by mask, and check against expected.
-  csrr x6, vsie    # Read CSR
-  and x6, x6, x14    # keep only masked bits 0x222
-  # Check if x6 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x6, HSm_mcsr_cg_cp_replica_vsie, HSm_mcsr_cg_cp_replica_vsie_str)
-  csrw sie, x9
-  csrw vsie, x8
-  csrr x9, stvec
-  csrr x8, vstvec
-  LA(x15, rvtest_code_begin)
-  srli x15, x15, 8
-  addi x15, x15, 1
-  slli x15, x15, 8
-  csrw stvec, x15
-  LA(x15, rvtest_code_begin)
-  srli x15, x15, 8
-  addi x15, x15, 2
-  slli x15, x15, 8
-  csrw vstvec, x15
+  # Read vsie into x13, keep only bits specified by mask, and check against expected.
+  csrr x13, vsie    # Read CSR
+  and x13, x13, x15    # keep only masked bits 0x222
+  # Check if x13 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x13, HSm_mcsr_cg_cp_replica_vsie, HSm_mcsr_cg_cp_replica_vsie_str)
+  csrw sie, x8
+  csrw vsie, x9
+  csrr x8, stvec
+  csrr x9, vstvec
+  LA(x6, rvtest_code_begin)
+  srli x6, x6, 8
+  addi x6, x6, 1
+  slli x6, x6, 8
+  csrw stvec, x6
+  LA(x6, rvtest_code_begin)
+  srli x6, x6, 8
+  addi x6, x6, 2
+  slli x6, x6, 8
+  csrw vstvec, x6
 HSm_mcsr_cg_cp_replica_stvec:
-  # Read stvec into x6 and check against expected.
-  RVTEST_SIGUPD_CSR_READ(stvec, x6, HSm_mcsr_cg_cp_replica_stvec, HSm_mcsr_cg_cp_replica_stvec_str)
+  # Read stvec into x14 and check against expected.
+  RVTEST_SIGUPD_CSR_READ(stvec, x14, HSm_mcsr_cg_cp_replica_stvec, HSm_mcsr_cg_cp_replica_stvec_str)
 HSm_mcsr_cg_cp_replica_vstvec:
-  # Read vstvec into x6 and check against expected.
-  RVTEST_SIGUPD_CSR_READ(vstvec, x6, HSm_mcsr_cg_cp_replica_vstvec, HSm_mcsr_cg_cp_replica_vstvec_str)
-  csrw stvec, x9
-  csrw vstvec, x8
-  csrr x9, sscratch
-  csrr x8, vsscratch
-  LI(x15, 0x1d2c3b4a)
-  csrw sscratch, x15
-  LI(x15, 0x5e6f7081)
-  csrw vsscratch, x15
+  # Read vstvec into x13 and check against expected.
+  RVTEST_SIGUPD_CSR_READ(vstvec, x13, HSm_mcsr_cg_cp_replica_vstvec, HSm_mcsr_cg_cp_replica_vstvec_str)
+  csrw stvec, x8
+  csrw vstvec, x9
+  csrr x8, sscratch
+  csrr x9, vsscratch
+  LI(x6, 0x1d2c3b4a)
+  csrw sscratch, x6
+  LI(x6, 0x5e6f7081)
+  csrw vsscratch, x6
 HSm_mcsr_cg_cp_replica_sscratch:
-  # Read sscratch into x6 and check against expected.
-  RVTEST_SIGUPD_CSR_READ(sscratch, x6, HSm_mcsr_cg_cp_replica_sscratch, HSm_mcsr_cg_cp_replica_sscratch_str)
+  # Read sscratch into x13 and check against expected.
+  RVTEST_SIGUPD_CSR_READ(sscratch, x13, HSm_mcsr_cg_cp_replica_sscratch, HSm_mcsr_cg_cp_replica_sscratch_str)
 HSm_mcsr_cg_cp_replica_vsscratch:
-  # Read vsscratch into x6 and check against expected.
-  RVTEST_SIGUPD_CSR_READ(vsscratch, x6, HSm_mcsr_cg_cp_replica_vsscratch, HSm_mcsr_cg_cp_replica_vsscratch_str)
-  csrw sscratch, x9
-  csrw vsscratch, x8
-  csrr x9, sepc
-  csrr x8, vsepc
-  LI(x15, 0x1a2b3c4c)
-  csrw sepc, x15
-  LI(x15, 0x7e8f9aa8)
-  csrw vsepc, x15
+  # Read vsscratch into x13 and check against expected.
+  RVTEST_SIGUPD_CSR_READ(vsscratch, x13, HSm_mcsr_cg_cp_replica_vsscratch, HSm_mcsr_cg_cp_replica_vsscratch_str)
+  csrw sscratch, x8
+  csrw vsscratch, x9
+  csrr x8, sepc
+  csrr x9, vsepc
+  LI(x6, 0x1a2b3c4c)
+  csrw sepc, x6
+  LI(x6, 0x7e8f9aa8)
+  csrw vsepc, x6
 HSm_mcsr_cg_cp_replica_sepc:
-  # Read sepc into x6 and check against expected.
-  RVTEST_SIGUPD_CSR_READ(sepc, x6, HSm_mcsr_cg_cp_replica_sepc, HSm_mcsr_cg_cp_replica_sepc_str)
+  # Read sepc into x13 and check against expected.
+  RVTEST_SIGUPD_CSR_READ(sepc, x13, HSm_mcsr_cg_cp_replica_sepc, HSm_mcsr_cg_cp_replica_sepc_str)
 HSm_mcsr_cg_cp_replica_vsepc:
-  # Read vsepc into x6 and check against expected.
-  RVTEST_SIGUPD_CSR_READ(vsepc, x6, HSm_mcsr_cg_cp_replica_vsepc, HSm_mcsr_cg_cp_replica_vsepc_str)
-  csrw sepc, x9
-  csrw vsepc, x8
-  csrr x9, scause
-  csrr x8, vscause
-  LI(x15, 0x2)
-  csrw scause, x15
-  LI(x15, 0xd)
-  csrw vscause, x15
+  # Read vsepc into x13 and check against expected.
+  RVTEST_SIGUPD_CSR_READ(vsepc, x13, HSm_mcsr_cg_cp_replica_vsepc, HSm_mcsr_cg_cp_replica_vsepc_str)
+  csrw sepc, x8
+  csrw vsepc, x9
+  csrr x8, scause
+  csrr x9, vscause
+  LI(x6, 0x2)
+  csrw scause, x6
+  LI(x6, 0xd)
+  csrw vscause, x6
 HSm_mcsr_cg_cp_replica_scause:
-  # Read scause into x13 and check against expected.
-  RVTEST_SIGUPD_CSR_READ(scause, x13, HSm_mcsr_cg_cp_replica_scause, HSm_mcsr_cg_cp_replica_scause_str)
+  # Read scause into x14 and check against expected.
+  RVTEST_SIGUPD_CSR_READ(scause, x14, HSm_mcsr_cg_cp_replica_scause, HSm_mcsr_cg_cp_replica_scause_str)
 HSm_mcsr_cg_cp_replica_vscause:
-  # Read vscause into x6 and check against expected.
-  RVTEST_SIGUPD_CSR_READ(vscause, x6, HSm_mcsr_cg_cp_replica_vscause, HSm_mcsr_cg_cp_replica_vscause_str)
-  csrw scause, x9
-  csrw vscause, x8
-  csrr x9, stval
-  csrr x8, vstval
-  LI(x15, 0x6b5a4938)
-  csrw stval, x15
-  LI(x15, 0x3c4d5e6f)
-  csrw vstval, x15
+  # Read vscause into x13 and check against expected.
+  RVTEST_SIGUPD_CSR_READ(vscause, x13, HSm_mcsr_cg_cp_replica_vscause, HSm_mcsr_cg_cp_replica_vscause_str)
+  csrw scause, x8
+  csrw vscause, x9
+  csrr x8, stval
+  csrr x9, vstval
+  LI(x6, 0x6b5a4938)
+  csrw stval, x6
+  LI(x6, 0x3c4d5e6f)
+  csrw vstval, x6
 HSm_mcsr_cg_cp_replica_stval:
-  # Read stval into x6 and check against expected.
-  RVTEST_SIGUPD_CSR_READ(stval, x6, HSm_mcsr_cg_cp_replica_stval, HSm_mcsr_cg_cp_replica_stval_str)
+  # Read stval into x13 and check against expected.
+  RVTEST_SIGUPD_CSR_READ(stval, x13, HSm_mcsr_cg_cp_replica_stval, HSm_mcsr_cg_cp_replica_stval_str)
 HSm_mcsr_cg_cp_replica_vstval:
-  # Read vstval into x6 and check against expected.
-  RVTEST_SIGUPD_CSR_READ(vstval, x6, HSm_mcsr_cg_cp_replica_vstval, HSm_mcsr_cg_cp_replica_vstval_str)
-  csrw stval, x9
-  csrw vstval, x8
-  csrr x9, sip
-  csrr x8, vsip
-  LI(x14, 0x222)
-  LI(x15, 0x2)
-  csrw sip, x15
-  LI(x15, 0x0)
-  csrw vsip, x15
+  # Read vstval into x14 and check against expected.
+  RVTEST_SIGUPD_CSR_READ(vstval, x14, HSm_mcsr_cg_cp_replica_vstval, HSm_mcsr_cg_cp_replica_vstval_str)
+  csrw stval, x8
+  csrw vstval, x9
+  csrr x8, sip
+  csrr x9, vsip
+  LI(x15, 0x222)
+  LI(x6, 0x2)
+  csrw sip, x6
+  LI(x6, 0x0)
+  csrw vsip, x6
 HSm_mcsr_cg_cp_replica_sip:
-  # Read sip into x6, keep only bits specified by mask, and check against expected.
-  csrr x6, sip    # Read CSR
-  and x6, x6, x14    # keep only masked bits 0x222
-  # Check if x6 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x6, HSm_mcsr_cg_cp_replica_sip, HSm_mcsr_cg_cp_replica_sip_str)
+  # Read sip into x14, keep only bits specified by mask, and check against expected.
+  csrr x14, sip    # Read CSR
+  and x14, x14, x15    # keep only masked bits 0x222
+  # Check if x14 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x14, HSm_mcsr_cg_cp_replica_sip, HSm_mcsr_cg_cp_replica_sip_str)
 HSm_mcsr_cg_cp_replica_vsip:
-  # Read vsip into x6, keep only bits specified by mask, and check against expected.
-  csrr x6, vsip    # Read CSR
-  and x6, x6, x14    # keep only masked bits 0x222
-  # Check if x6 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x6, HSm_mcsr_cg_cp_replica_vsip, HSm_mcsr_cg_cp_replica_vsip_str)
-  csrw sip, x9
-  csrw vsip, x8
+  # Read vsip into x14, keep only bits specified by mask, and check against expected.
+  csrr x14, vsip    # Read CSR
+  and x14, x14, x15    # keep only masked bits 0x222
+  # Check if x14 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x14, HSm_mcsr_cg_cp_replica_vsip, HSm_mcsr_cg_cp_replica_vsip_str)
+  csrw sip, x8
+  csrw vsip, x9
 #if ((__riscv_xlen == 64 && defined(SV39_SUPPORTED)) || (__riscv_xlen == 32 && defined(SV32_SUPPORTED))) && ((__riscv_xlen == 64 && defined(UDB_SV39_VSMODE_TRANSLATION)) || (__riscv_xlen == 32 && defined(UDB_SV32_VSMODE_TRANSLATION)))
-  csrr x9, satp
-  csrr x8, vsatp
-  LI(x15, 0x0)
-  csrw satp, x15
-  LA(x15, rvtest_Vroot_pg_tbl)
-  srli x15, x15, 12
+  csrr x8, satp
+  csrr x9, vsatp
+  LI(x6, 0x0)
+  csrw satp, x6
+  LA(x6, rvtest_Vroot_pg_tbl)
+  srli x6, x6, 12
 #if __riscv_xlen == 64
-  LI(x6, 0x8000000000000000)
+  LI(x14, 0x8000000000000000)
 #else
-  LI(x6, 0x80000000)
+  LI(x14, 0x80000000)
 #endif
-  or x15, x15, x6
-  csrw vsatp, x15
+  or x6, x6, x14
+  csrw vsatp, x6
 HSm_mcsr_cg_cp_replica_satp:
   # Read satp into x13 and check against expected.
   RVTEST_SIGUPD_CSR_READ(satp, x13, HSm_mcsr_cg_cp_replica_satp, HSm_mcsr_cg_cp_replica_satp_str)
 HSm_mcsr_cg_cp_replica_vsatp:
-  # Read vsatp into x6 and check against expected.
-  RVTEST_SIGUPD_CSR_READ(vsatp, x6, HSm_mcsr_cg_cp_replica_vsatp, HSm_mcsr_cg_cp_replica_vsatp_str)
-  csrw satp, x9
-  csrw vsatp, x8
+  # Read vsatp into x14 and check against expected.
+  RVTEST_SIGUPD_CSR_READ(vsatp, x14, HSm_mcsr_cg_cp_replica_vsatp, HSm_mcsr_cg_cp_replica_vsatp_str)
+  csrw satp, x8
+  csrw vsatp, x9
 #endif // ((__riscv_xlen == 64 && defined(SV39_SUPPORTED)) || (__riscv_xlen == 32 && defined(SV32_SUPPORTED))) && ((__riscv_xlen == 64 && defined(UDB_SV39_VSMODE_TRANSLATION)) || (__riscv_xlen == 32 && defined(UDB_SV32_VSMODE_TRANSLATION)))
   csrw mideleg, zero
   csrw hideleg, zero
@@ -218,13 +218,13 @@ HSm_mcsr_cg_cp_replica_vsatp:
 //   Write all 1s to mtval; it must not read back as zero
 /////////////////////////////////
   csrr x8, mtval
-  LI(x15, -1)
+  LI(x9, -1)
 HSm_mcsr_cg_cp_mtvala_ones:
-  csrw mtval, x15
-  csrr x15, mtval
-  snez x15, x15
-  # Check if x15 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
-  RVTEST_SIGUPD(x2, x5, x4, x15, HSm_mcsr_cg_cp_mtvala_ones, HSm_mcsr_cg_cp_mtvala_ones_str)
+  csrw mtval, x9
+  csrr x9, mtval
+  snez x9, x9
+  # Check if x9 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x9, HSm_mcsr_cg_cp_mtvala_ones, HSm_mcsr_cg_cp_mtvala_ones_str)
   csrw mtval, x8
 
 // Instantiate trap handlers and other epilog code, call RVMODEL_HALT at end of test
@@ -237,25 +237,25 @@ RVTEST_DATA_BEGIN
 
 
 // Testcase strings
-HSm_mcsr_cg_cp_replica_sstatus_str: .string "\"test: 3021; cg: HSm_mcsr_cg; cp: cp_replica; bin: sstatus\""
-HSm_mcsr_cg_cp_replica_vsstatus_str: .string "\"test: 3022; cg: HSm_mcsr_cg; cp: cp_replica; bin: vsstatus\""
-HSm_mcsr_cg_cp_replica_sie_str: .string "\"test: 3023; cg: HSm_mcsr_cg; cp: cp_replica; bin: sie\""
-HSm_mcsr_cg_cp_replica_vsie_str: .string "\"test: 3024; cg: HSm_mcsr_cg; cp: cp_replica; bin: vsie\""
-HSm_mcsr_cg_cp_replica_stvec_str: .string "\"test: 3025; cg: HSm_mcsr_cg; cp: cp_replica; bin: stvec\""
-HSm_mcsr_cg_cp_replica_vstvec_str: .string "\"test: 3026; cg: HSm_mcsr_cg; cp: cp_replica; bin: vstvec\""
-HSm_mcsr_cg_cp_replica_sscratch_str: .string "\"test: 3027; cg: HSm_mcsr_cg; cp: cp_replica; bin: sscratch\""
-HSm_mcsr_cg_cp_replica_vsscratch_str: .string "\"test: 3028; cg: HSm_mcsr_cg; cp: cp_replica; bin: vsscratch\""
-HSm_mcsr_cg_cp_replica_sepc_str: .string "\"test: 3029; cg: HSm_mcsr_cg; cp: cp_replica; bin: sepc\""
-HSm_mcsr_cg_cp_replica_vsepc_str: .string "\"test: 3030; cg: HSm_mcsr_cg; cp: cp_replica; bin: vsepc\""
-HSm_mcsr_cg_cp_replica_scause_str: .string "\"test: 3031; cg: HSm_mcsr_cg; cp: cp_replica; bin: scause\""
-HSm_mcsr_cg_cp_replica_vscause_str: .string "\"test: 3032; cg: HSm_mcsr_cg; cp: cp_replica; bin: vscause\""
-HSm_mcsr_cg_cp_replica_stval_str: .string "\"test: 3033; cg: HSm_mcsr_cg; cp: cp_replica; bin: stval\""
-HSm_mcsr_cg_cp_replica_vstval_str: .string "\"test: 3034; cg: HSm_mcsr_cg; cp: cp_replica; bin: vstval\""
-HSm_mcsr_cg_cp_replica_sip_str: .string "\"test: 3035; cg: HSm_mcsr_cg; cp: cp_replica; bin: sip\""
-HSm_mcsr_cg_cp_replica_vsip_str: .string "\"test: 3036; cg: HSm_mcsr_cg; cp: cp_replica; bin: vsip\""
-HSm_mcsr_cg_cp_replica_satp_str: .string "\"test: 3037; cg: HSm_mcsr_cg; cp: cp_replica; bin: satp\""
-HSm_mcsr_cg_cp_replica_vsatp_str: .string "\"test: 3038; cg: HSm_mcsr_cg; cp: cp_replica; bin: vsatp\""
-HSm_mcsr_cg_cp_mtvala_ones_str: .string "\"test: 3039; cg: HSm_mcsr_cg; cp: cp_mtvala; bin: ones\""
+HSm_mcsr_cg_cp_replica_sstatus_str: .string "\"test: 3022; cg: HSm_mcsr_cg; cp: cp_replica; bin: sstatus\""
+HSm_mcsr_cg_cp_replica_vsstatus_str: .string "\"test: 3023; cg: HSm_mcsr_cg; cp: cp_replica; bin: vsstatus\""
+HSm_mcsr_cg_cp_replica_sie_str: .string "\"test: 3024; cg: HSm_mcsr_cg; cp: cp_replica; bin: sie\""
+HSm_mcsr_cg_cp_replica_vsie_str: .string "\"test: 3025; cg: HSm_mcsr_cg; cp: cp_replica; bin: vsie\""
+HSm_mcsr_cg_cp_replica_stvec_str: .string "\"test: 3026; cg: HSm_mcsr_cg; cp: cp_replica; bin: stvec\""
+HSm_mcsr_cg_cp_replica_vstvec_str: .string "\"test: 3027; cg: HSm_mcsr_cg; cp: cp_replica; bin: vstvec\""
+HSm_mcsr_cg_cp_replica_sscratch_str: .string "\"test: 3028; cg: HSm_mcsr_cg; cp: cp_replica; bin: sscratch\""
+HSm_mcsr_cg_cp_replica_vsscratch_str: .string "\"test: 3029; cg: HSm_mcsr_cg; cp: cp_replica; bin: vsscratch\""
+HSm_mcsr_cg_cp_replica_sepc_str: .string "\"test: 3030; cg: HSm_mcsr_cg; cp: cp_replica; bin: sepc\""
+HSm_mcsr_cg_cp_replica_vsepc_str: .string "\"test: 3031; cg: HSm_mcsr_cg; cp: cp_replica; bin: vsepc\""
+HSm_mcsr_cg_cp_replica_scause_str: .string "\"test: 3032; cg: HSm_mcsr_cg; cp: cp_replica; bin: scause\""
+HSm_mcsr_cg_cp_replica_vscause_str: .string "\"test: 3033; cg: HSm_mcsr_cg; cp: cp_replica; bin: vscause\""
+HSm_mcsr_cg_cp_replica_stval_str: .string "\"test: 3034; cg: HSm_mcsr_cg; cp: cp_replica; bin: stval\""
+HSm_mcsr_cg_cp_replica_vstval_str: .string "\"test: 3035; cg: HSm_mcsr_cg; cp: cp_replica; bin: vstval\""
+HSm_mcsr_cg_cp_replica_sip_str: .string "\"test: 3036; cg: HSm_mcsr_cg; cp: cp_replica; bin: sip\""
+HSm_mcsr_cg_cp_replica_vsip_str: .string "\"test: 3037; cg: HSm_mcsr_cg; cp: cp_replica; bin: vsip\""
+HSm_mcsr_cg_cp_replica_satp_str: .string "\"test: 3038; cg: HSm_mcsr_cg; cp: cp_replica; bin: satp\""
+HSm_mcsr_cg_cp_replica_vsatp_str: .string "\"test: 3039; cg: HSm_mcsr_cg; cp: cp_replica; bin: vsatp\""
+HSm_mcsr_cg_cp_mtvala_ones_str: .string "\"test: 3040; cg: HSm_mcsr_cg; cp: cp_mtvala; bin: ones\""
 
 // End of test data section and model specific data
 RVTEST_DATA_END
