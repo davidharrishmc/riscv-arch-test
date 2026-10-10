@@ -2,29 +2,19 @@
 # Jordan Carlin jcarlin@hmc.edu April 2026
 # CI configuration for Whisper simulator
 
-# ExceptionsZc: on RV32 with H, whisper writes htinst/mtinst for a faulting c.fsw with rs1 and rs2 swapped
-#   (https://github.com/tenstorrent/whisper/issues/83)
-# SsstateenH, SmstateenH: on RV32, VS-mode reads of hstateen0h succeed instead of raising virtual instruction
-#   (https://github.com/tenstorrent/whisper/issues/84); the pinned whisper also makes the reserved bit 53 of
-#   hstateen0 writable, fixed upstream by 656b8edd
-# ZicfilpH: SRET executed in VS-mode takes the landing pad enable of the new mode from hstatus.SPV, so an SRET
-#   to VS-mode with hstatus.SPV = 0 uses menvcfg.LPE instead of henvcfg.LPE and does not restore ELP from
-#   vsstatus.SPELP (https://github.com/tenstorrent/whisper/issues/85)
-# SsnpmH: on RV64, hstatus.HUPMM is read-only zero (https://github.com/tenstorrent/whisper/issues/86)
+# SsstrictSm: Sail 0.15 lacks Smaia and Smrnmi, whose CSRs Whisper implements
+# SmstateenH: on RV32, whisper d50ee73 makes henvcfg.CBIE bit 4 read-only zero
+#   (https://github.com/tenstorrent/whisper/issues/107)
 # SstcH, SstcHSm: whisper-rv64-max-notime, whose time CSR does not exist, does not raise VSTIP when time +
 #   htimedelta >= vstimecmp (SstcHSm_vstip with vstimecmp = 0 never sees hip.VSTIP); whisper-rv64-max passes (no issue filed)
-# SsstrictSm: Sail 0.15 lacks Smaia and Smrnmi, whose CSRs Whisper implements; Whisper also
-#   exposes CSRs that do not exist on the configured hart (ssp without Zicfiss, S-level AIA CSRs
-#   without S-mode, hidelegh without H, RV32 mhpmevent<n>h without Sscofpmf)
-# Smstateen: Whisper's mstateen0/0h writable mask ignores the configured extensions (RV32 P1P13
-#   without H; ENVCFG, CSRIND, AIA, IMSIC, CONTEXT and SRMCFG on the -mu configs); Sail lacks the
-#   Sdtrig CONTEXT bit (rv64-max)
+# Smstateen: the -mu configs pass. On the max configs Whisper implements Sscsrind and Ssaia, so
+#   mstateen0.CSRIND, AIA and IMSIC are writable, but Sail does not model those extensions
+#   (https://github.com/riscv/sail-riscv/issues/1134, https://github.com/riscv/sail-riscv/pull/1874).
 # SsstrictS: Sail traps on siselect/stopi accesses that Whisper permits with mstateen0 enabled.
 # Sdtrig* not yet implemented in Sail (https://github.com/riscv/sail-riscv/issues/222)
 # Ssnpm,SsnpmSm,Smmpm,SmnpmS,SmnpmSSm,SmnpmU,SmnpmUSm : Failing due to mismatch in stval/mtval ,Issue Link (https://github.com/riscv/sail-riscv/issues/1962)
-# Sm: mstatus.SPELP is writable without S (https://github.com/tenstorrent/whisper/issues/104)
 ci_enabled: true
-exclude_extensions: "SsstrictSm,SsstrictS,Smstateen,SdtrigSm,SdtrigS,SdtrigU,ExceptionsZc,SsstateenH,SmstateenH,ZicfilpH,SsnpmH,SstcH,SstcHSm,Ssnpm,SsnpmSm,Smmpm,SmnpmS,SmnpmSSm,SmnpmU,SmnpmUSm,Sm"
+exclude_extensions: "SsstrictSm,SsstrictS,Smstateen,SdtrigSm,SdtrigS,SdtrigU,SmstateenH,SstcH,SstcHSm,Ssnpm,SsnpmSm,Smmpm,SmnpmS,SmnpmSSm,SmnpmU,SmnpmUSm"
 exclude_configs:
   - whisper-rv32-max-spike-ref
   - whisper-rv64-max-spike-ref

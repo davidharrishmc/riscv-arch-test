@@ -47,13 +47,8 @@
 #define SETIE_SRC2      0x4 /* enable source 2 (bit 2) */
 
 #define RVMODEL_BOOT \
-  /* ---- IMSIC: let the APLIC deliver directly to the M-level and S-level files (eidelivery = 0x40000000) ---- */ \
-  li      t0, IMSIC_EIDELIVERY; \
-  li      t1, 0x40000000; \
-  csrw    miselect, t0; \
-  csrw    mireg, t1; \
-  csrw    siselect, t0; \
-  csrw    sireg, t1; \
+  /* ---- IMSIC: let the APLIC deliver directly to the M-level and S-level files ---- */ \
+  IMSIC_ENABLE_APLIC_DELIVERY \
   /* ---- Machine APLIC domain: source 1 -> MEXT ---- */ \
   li      t1, ADDR_SOURCECFG1; /* setting up for APLIC */\
   li      t2, SM_EDGE1; \
@@ -118,9 +113,27 @@
   li t0, IMSIC_EITHRESHOLD; csrw _SEL, t0; csrw _REG, zero; \
   li t0, IMSIC_EIE0;        csrw _SEL, t0; li t1, 1 << IMSIC_EIID; csrs _REG, t1;
 
+/* Only the configs with H and Ssaia have an IMSIC (whisper.json "imsic"); the -m and -mu configs that share this
+ * file have none, and mireg accesses to IMSIC registers there are illegal. */
 #if defined(H_SUPPORTED) && defined(SSAIA_SUPPORTED)
+  /* eidelivery = 0x40000000 in the M-level and S-level files */
+  #define IMSIC_ENABLE_APLIC_DELIVERY \
+    li t0, IMSIC_EIDELIVERY; li t1, 0x40000000; \
+    csrw miselect, t0; csrw mireg, t1; \
+    csrw siselect, t0; csrw sireg, t1;
+
+  /* On RV32, Whisper keeps using the old hstatus.VGEIN after an hstatus write while mstatush is nonzero, as it is
+   * at reset (MDT = 1), so the vsireg accesses below would trap (https://github.com/tenstorrent/whisper/issues/108).
+   * The test setup clears mstatush after boot anyway. */
+  #if __riscv_xlen == 32
+    #define IMSIC_CLEAR_MSTATUSH csrw mstatush, zero;
+  #else
+    #define IMSIC_CLEAR_MSTATUSH
+  #endif
+
   /* hstatus.VGEIN selects the guest file that vsiselect and vsireg reach; walk it over 1..IMSIC_GEILEN */
   #define IMSIC_ENABLE_GUEST_FILES \
+    IMSIC_CLEAR_MSTATUSH \
     csrr t2, hstatus; \
     li t3, 1; \
     1: slli t0, t3, 12; csrw hstatus, t0; \
@@ -128,6 +141,7 @@
     addi t3, t3, 1; li t0, IMSIC_GEILEN; bleu t3, t0, 1b; \
     csrw hstatus, t2;
 #else
+  #define IMSIC_ENABLE_APLIC_DELIVERY
   #define IMSIC_ENABLE_GUEST_FILES
 #endif
 
