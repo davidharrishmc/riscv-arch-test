@@ -21,7 +21,8 @@ make cva6-vector CVA6_VECTOR_SUITES=Vx8 RUN_JOBS=8  # one suite, eight simulatio
 ```
 
 The first run builds Ara into `ARA_DIR` (default `~/.cache/act/ara`, about 10 minutes), and it is
-rebuilt whenever `install-ara.sh` changes. To build Ara by hand and run every suite instead:
+rebuilt whenever `install-ara.sh` changes. Results go to `work/cva6-vector/cv64a6_imafdcv_sv39`,
+away from the ELFs of other `make` runs. To build Ara by hand and run every suite instead:
 
 ```bash
 .github/scripts/install-ara.sh ~/repos/ara-builds

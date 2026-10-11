@@ -22,6 +22,10 @@ ARA_COMMIT="34bd3bc152421b4601a7bf3d6e8e91ffb545c99e"
 # flist when --hierarchical is used, so the design does not even elaborate.
 mkdir -p "$INSTALL_DIR"
 
+# Where ccache masquerades as the compiler (a ccache directory on PATH), it serves precompiled
+# headers and objects from earlier Ara builds, which yields models that fail to compile or crash.
+export CCACHE_DISABLE=1
+
 git init "$INSTALL_DIR/ara"
 (
   cd "$INSTALL_DIR/ara"

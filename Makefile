@@ -308,9 +308,12 @@ $(foreach t,$(ALL_RUN_TARGETS),$(eval $(call run-target,$(t))))
 
 # The vector suites are too slow on the CVA6 + Ara Verilator model for CI, so config/cores/cva6/ci.yaml
 # excludes them and `make cva6-vector` runs them locally. Ara is built into ARA_DIR on first use and
-# rebuilt whenever .github/scripts/install-ara.sh changes (about 10 minutes).
+# rebuilt whenever .github/scripts/install-ara.sh changes (about 10 minutes). run_tests.py runs every
+# ELF in the config's elfs directory, so the vector suites get their own work directory, and suites
+# left there by an earlier, wider selection are dropped.
 ARA_DIR ?= $(HOME)/.cache/act/ara
 CVA6_VECTOR_SUITES ?= Vx8,Vx16,Vx32,Vx64,Vls8,Vls16,Vls32,Vls64,Vf32,Vf64
+CVA6_VECTOR_WORKDIR ?= $(WORKDIR)/cva6-vector
 
 .PHONY: cva6-vector
 cva6-vector:
@@ -325,8 +328,12 @@ cva6-vector:
 			{ echo "Ara build failed; see $(ARA_DIR)/install.log"; exit 1; }; \
 		echo $$stamp > $(ARA_DIR)/.install-ara.sha256; \
 	fi
+	@for d in $(CVA6_VECTOR_WORKDIR)/cv64a6_imafdcv_sv39/elfs/*/*/; do \
+		case ",$(CVA6_VECTOR_SUITES)," in *,$$(basename $$d),*) ;; *) rm -rf $$d ;; esac; \
+	done
 	@PATH="$(ARA_DIR)/bin:$$PATH" ARA_SNAPSHOT=$(ARA_DIR)/build \
-		$(MAKE) cv64a6_imafdcv_sv39 EXTENSIONS=$(CVA6_VECTOR_SUITES) EXCLUDE_EXTENSIONS=
+		$(MAKE) cv64a6_imafdcv_sv39 WORKDIR=$(CVA6_VECTOR_WORKDIR) EXTENSIONS=$(CVA6_VECTOR_SUITES) \
+		EXCLUDE_EXTENSIONS=
 
 
 
