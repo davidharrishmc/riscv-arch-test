@@ -2,15 +2,26 @@
 
 [CVA6](https://github.com/pulp-platform/cva6) `cv64a6_imafdcv_sv39` with the
 [Ara](https://github.com/pulp-platform/ara) vector unit. The configuration is pinned to Ara commit
-`34bd3bc1`, which carries CVA6 `99eac9a6`, and runs the Ara SoC under Verilator with 4 lanes and
-VLEN 512. `install-ara.sh` also turns on CVA6's bit-manipulation unit (`RVB`) and its `ZKN`
-instructions, which this CVA6 configuration leaves off.
+`34bd3bc1`, which carries CVA6 `99eac9a6`, plus the hardware fixes from open Ara PRs 469, 502 and
+467 (listed in `install-ara.sh`), and runs the Ara SoC under Verilator with 4 lanes and VLEN 512.
+`install-ara.sh` also turns on CVA6's bit-manipulation unit (`RVB`) and its `ZKN` instructions,
+which this CVA6 configuration leaves off.
 
 | Config                | ISA                                                        | Modes   |
 | --------------------- | ---------------------------------------------------------- | ------- |
 | `cv64a6_imafdcv_sv39` | RV64IMAFDCBV_Zicsr_Zifencei_Zihpm_Zbc_Zbkb_Zbkc_Sv39_Svade | M, S, U |
 
 ## Building and running
+
+CI skips the vector suites, which are too slow on this model. To run them locally:
+
+```bash
+make cva6-vector                                  # all vector suites
+make cva6-vector CVA6_VECTOR_SUITES=Vx8 RUN_JOBS=8  # one suite, eight simulations at a time
+```
+
+The first run builds Ara into `ARA_DIR` (default `~/.cache/act/ara`, about 10 minutes), and it is
+rebuilt whenever `install-ara.sh` changes. To build Ara by hand and run every suite instead:
 
 ```bash
 .github/scripts/install-ara.sh ~/repos/ara-builds

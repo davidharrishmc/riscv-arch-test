@@ -29,6 +29,23 @@ git init "$INSTALL_DIR/ara"
   git fetch --depth 1 origin "$ARA_COMMIT"
   git checkout FETCH_HEAD
   git submodule update --init --recursive toolchain/verilator
+
+  # Hardware fixes from open Ara PRs, applied as each PR's base..head diff of hardware/ (their
+  # CHANGELOG.md entries conflict). Drop an entry and bump ARA_COMMIT once its PR merges.
+  #   469: vcpop.m/vfirst.m count past vl (#446), vcompress completion hang (#450), vid.v deadlock (#448)
+  #   502: vfirst.m index accumulation and operands stranded for the next mask instruction (#500)
+  #   467: VWXUNARY0 vs1 hazard (#436), segment EEW tracking (#453), vext.vf8 EEW (#452), masked vmerge to v0 (#460)
+  for fix in \
+    "469 ab4158aeeb552a5b6f9aebed7fca0e51aa003534 aee901c70f9eb9be644da556dc4a2ddd0de48661" \
+    "502 34bd3bc152421b4601a7bf3d6e8e91ffb545c99e 16edd3ba8a734b7cc52dee124bd86adb53fa66ff" \
+    "467 ab4158aeeb552a5b6f9aebed7fca0e51aa003534 f1a7030e6fff5be85c9a5b99816fd418befed0e7"; do
+    read -r pr base head <<<"$fix"
+    git fetch --depth 1 origin "$base" "$head"
+    git diff "$base" "$head" -- hardware | git apply || {
+      echo "install-ara.sh: Ara PR $pr does not apply" >&2
+      exit 1
+    }
+  done
 )
 
 (
