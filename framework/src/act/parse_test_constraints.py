@@ -168,9 +168,12 @@ def _is_excluded(test_file: Path, exclude_list: list[str]) -> bool:
 
     An entry names a suite directory (Sm) or a group of tests whose file names start with
     the entry followed by _ or - (Sm_mcsr_walk matches Sm_mcsr_walk-00.S; I-add matches I-add-00.S).
+    An entry ending in - matches only that group, not longer groups that extend its name
+    (S_scsr- matches S_scsr-00.S but not S_scsr_addr-00.S; S- matches S-00.S but not S_F-00.S).
     """
+    name = test_file.name
     return test_file.parent.name in exclude_list or any(
-        test_file.name.startswith((f"{ext}_", f"{ext}-")) for ext in exclude_list
+        name.startswith(ext if ext.endswith("-") else (f"{ext}_", f"{ext}-")) for ext in exclude_list
     )
 
 
