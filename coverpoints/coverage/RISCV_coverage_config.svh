@@ -173,15 +173,6 @@
 `ifdef SM_COVERAGE
   `include "Sm_coverage.svh"
 `endif
-`ifdef SMF_COVERAGE
-  `include "SmF_coverage.svh"
-`endif
-`ifdef SMV_COVERAGE
-  `include "SmV_coverage.svh"
-`endif
-`ifdef SMVF_COVERAGE
-  `include "SmVF_coverage.svh"
-`endif
 `ifdef SMMPM_COVERAGE
   `include "Smmpm_coverage.svh"
 `endif
@@ -301,12 +292,6 @@
 `endif
 `ifdef U_COVERAGE
   `include "U_coverage.svh"
-`endif
-`ifdef UF_COVERAGE
-  `include "UF_coverage.svh"
-`endif
-`ifdef UV_COVERAGE
-  `include "UV_coverage.svh"
 `endif
 `ifdef VF16_COVERAGE
   `include "Vf16_coverage.svh"
