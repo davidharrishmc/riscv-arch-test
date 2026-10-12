@@ -17,7 +17,7 @@ from testgen.priv.registry import add_priv_test_generator
 
 @add_priv_test_generator(
     "Sm",
-    required_extensions=["Sm", "Zve32x", "Zicsr"],
+    required_extensions=["Sm", "Zve32x"],
     march_extensions=["Zve32x"],
     extra_defines=[
         "#define RVTEST_VECTOR",

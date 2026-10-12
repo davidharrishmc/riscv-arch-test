@@ -405,7 +405,6 @@ endgroup
 `endif
 
 `ifdef ZVE32F_SUPPORTED
-`ifdef F_SUPPORTED
 covergroup S_VF_cg with function sample(ins_t ins);
     option.per_instance = 0;
     `include "general/RISCV_coverage_priv_vf_coverpoints.svh"
@@ -436,7 +435,6 @@ covergroup S_VF_cg with function sample(ins_t ins);
 
 endgroup
 `endif
-`endif
 
 function void s_sample(int hart, int issue, ins_t ins);
     S_scause_cg.sample(ins);
@@ -452,9 +450,7 @@ function void s_sample(int hart, int issue, ins_t ins);
         S_V_cg.sample(ins);
     `endif
     `ifdef ZVE32F_SUPPORTED
-    `ifdef F_SUPPORTED
         S_VF_cg.sample(ins);
-    `endif
     `endif
     end
 endfunction

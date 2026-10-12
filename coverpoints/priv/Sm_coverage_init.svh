@@ -19,7 +19,5 @@
     Sm_V_cg = new();            Sm_V_cg.set_inst_name("obj_Sm_V");
 `endif
 `ifdef ZVE32F_SUPPORTED
-`ifdef F_SUPPORTED
     Sm_VF_cg = new();           Sm_VF_cg.set_inst_name("obj_Sm_VF");
-`endif
 `endif

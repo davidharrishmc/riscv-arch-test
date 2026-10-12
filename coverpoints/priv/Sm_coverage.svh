@@ -857,7 +857,6 @@ endgroup
 `endif
 
 `ifdef ZVE32F_SUPPORTED
-`ifdef F_SUPPORTED
 covergroup Sm_VF_cg with function sample(ins_t ins);
     option.per_instance = 0;
     `include "general/RISCV_coverage_priv_vf_coverpoints.svh"
@@ -888,7 +887,6 @@ covergroup Sm_VF_cg with function sample(ins_t ins);
 
 endgroup
 `endif
-`endif
 
 function void sm_sample(int hart, int issue, ins_t ins);
     Sm_mcause_cg.sample(ins);
@@ -902,9 +900,7 @@ function void sm_sample(int hart, int issue, ins_t ins);
         Sm_V_cg.sample(ins);
     `endif
     `ifdef ZVE32F_SUPPORTED
-    `ifdef F_SUPPORTED
         Sm_VF_cg.sample(ins);
-    `endif
     `endif
     //$display("Sm_sample: PC = %h (%s) misa %b rs1 %b, misa_c0 %b, pc_1 %b",
     //    ins.current.pc_rdata, ins.current.disass, ins.current.insn[31:20] == CSR_MISA, ins.current.rs1_val[25:0],
