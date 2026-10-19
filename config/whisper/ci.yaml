@@ -2,7 +2,7 @@
 # Jordan Carlin jcarlin@hmc.edu April 2026
 # CI configuration for Whisper simulator
 
-# SsstrictSm: Sail 0.15 lacks Smaia and Smrnmi, whose CSRs Whisper implements
+# SsstrictSm: Sail 0.16 lacks Smaia and Smrnmi, whose CSRs Whisper implements
 # Smstateen: the -mu configs pass. On the max configs Whisper implements Sscsrind and Ssaia, so
 #   mstateen0.CSRIND, AIA and IMSIC are writable, but Sail does not model those extensions
 #   (https://github.com/riscv/sail-riscv/issues/1134, https://github.com/riscv/sail-riscv/pull/1874).
@@ -12,7 +12,7 @@
 #   (https://github.com/tenstorrent/whisper/issues/109).
 # ZicfissSm, ZicfissU: on a TLB miss, an ordinary load from a shadow stack page raises a page fault,
 #   and the walk lacks the store/CBO access-fault check (https://github.com/tenstorrent/whisper/issues/110).
-# Ssnpm,SsnpmSm,Smmpm,SmnpmS,SmnpmSSm,SmnpmU,SmnpmUSm : Failing due to mismatch in stval/mtval ,Issue Link (https://github.com/riscv/sail-riscv/issues/1962)
+# Ssnpm,SsnpmSm,Smmpm,SmnpmS: Failing due to mismatch in scause/mcause ,Issue Link (https://github.com/tenstorrent/whisper/issues/200)
 ci_enabled: true
 exclude_extensions: "SsstrictSm,SsstrictS,Smstateen,SdtrigSm,SdtrigS,SdtrigU,Ssnpm,SsnpmSm,Smmpm,SmnpmS,SmnpmSSm,SmnpmU,SmnpmUSm,ZicfissU,ZicfissSm"
 exclude_configs:
