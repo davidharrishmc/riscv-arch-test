@@ -35,6 +35,7 @@ from testgen.priv.extensions.pmp.helpers import (
     napot_mask_defines,
     zero_pmp_regs,
 )
+from testgen.priv.extensions.pmp.probes import Cross
 from testgen.priv.extensions.sv.access import virtual_address
 from testgen.priv.extensions.sv.generate import guest_translation_setup, guest_translation_teardown, per_xlen
 from testgen.priv.extensions.sv.page_tables import (
@@ -93,13 +94,17 @@ def _deny(regions: list[tuple[str, int, str]], lxwr: str = "0000") -> list[str]:
 #####################################################################
 
 
-def _hlv_probes(test_data: TestData, case: str, coverpoint: str, region: str) -> list[str]:
+def _hlv_probes(test_data: TestData, case: str, coverpoint: Cross, region: str) -> list[str]:
     """Every hsv, hlv and hlvx at ``region``.  A faulting load keeps rd's previous value."""
     addr, rd = test_data.int_regs.get_registers(2)
     lines = ["", f"LA(x{addr}, {region})", f"LI(x{rd}, RVTEST_PMP_RET_ENCODING)"]
     for instr, rv64 in (*HSV_INSTRS, *HLV_INSTRS, *HLVX_INSTRS):
         body = [
-            test_data.add_testcase(f"{case}_{instr}", f"{coverpoint}_{instr.split('.')[0]}", test_data.testsuite),
+            test_data.add_testcase(
+                f"{case}_{instr}",
+                f"{coverpoint}_{instr.split('.')[0]}" if isinstance(coverpoint, str) else coverpoint(instr),
+                test_data.testsuite,
+            ),
             f"{instr} x{rd}, (x{addr})",
             write_sigupd(rd, test_data),
         ]
