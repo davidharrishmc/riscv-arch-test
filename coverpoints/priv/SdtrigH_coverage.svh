@@ -12,6 +12,8 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 `define COVER_SDTRIGH
+`include "general/RISCV_coverage_sdtrig_derived.svh"
+`include "general/RISCV_coverage_sdtrig_functions.svh"
 
 // mstateen0 and hstateen0 CONTEXT are in the high-half CSRs on RV32
 `ifdef UDB_MXLEN_64
@@ -145,8 +147,16 @@ covergroup SdtrigH_mcontrol6_cg with function sample(ins_t ins);
     }
 
     // main coverpoints
-    cp_mcontrol6_vs: cross priv_mode_vs, triggernum, sw_watched, outcome_vs;  // NTRIG * 2 outcomes
-    cp_mcontrol6_vu: cross priv_mode_vu, triggernum, sw_watched, outcome_vu;  // NTRIG * 2 outcomes
+    `ifdef SDTRIG_MCONTROL6_ANY
+    `ifdef UDB_SDTRIG_MCONTROL6_STORE_WRITABLE
+        `ifdef UDB_SDTRIG_VS_WRITABLE
+            cp_mcontrol6_vs: cross priv_mode_vs, triggernum_mcontrol6, sw_watched, outcome_vs;  // mcontrol6 triggers * 2 outcomes
+        `endif
+        `ifdef UDB_SDTRIG_VU_WRITABLE
+            cp_mcontrol6_vu: cross priv_mode_vu, triggernum_mcontrol6, sw_watched, outcome_vu;  // mcontrol6 triggers * 2 outcomes
+        `endif
+    `endif
+    `endif
 endgroup
 
 covergroup SdtrigH_icount_cg with function sample(ins_t ins);
@@ -171,8 +181,14 @@ covergroup SdtrigH_icount_cg with function sample(ins_t ins);
     }
 
     // main coverpoints
-    cp_icount_vs: cross priv_mode_vs, triggernum, icount_point, outcome_vs;  // NTRIG * 2 outcomes
-    cp_icount_vu: cross priv_mode_vu, triggernum, icount_point, outcome_vu;  // NTRIG * 2 outcomes
+    `ifdef SDTRIG_ICOUNT_ANY
+        `ifdef UDB_SDTRIG_VS_WRITABLE
+            cp_icount_vs: cross priv_mode_vs, triggernum_icount, icount_point, outcome_vs;  // icount triggers * 2 outcomes
+        `endif
+        `ifdef UDB_SDTRIG_VU_WRITABLE
+            cp_icount_vu: cross priv_mode_vu, triggernum_icount, icount_point, outcome_vu;  // icount triggers * 2 outcomes
+        `endif
+    `endif
 endgroup
 
 covergroup SdtrigH_itrigger_cg with function sample(ins_t ins);
@@ -207,8 +223,18 @@ covergroup SdtrigH_itrigger_cg with function sample(ins_t ins);
     }
 
     // main coverpoints
-    cp_itrigger_vs: cross trap_from_vs, triggernum, itrigger_ssi, outcome_vs;  // NTRIG * 2 outcomes
-    cp_itrigger_vu: cross trap_from_vu, triggernum, itrigger_ssi, outcome_vu;  // NTRIG * 2 outcomes
+    `ifdef SDTRIG_ITRIGGER_ANY
+    `ifdef UDB_SSI_INTR_IMPL
+    `ifdef UDB_SDTRIG_ITRIGGER_SUPPORTED_INTERRUPTS_1
+        `ifdef UDB_SDTRIG_VS_WRITABLE
+            cp_itrigger_vs: cross trap_from_vs, triggernum_itrigger, itrigger_ssi, outcome_vs;  // itrigger triggers * 2 outcomes
+        `endif
+        `ifdef UDB_SDTRIG_VU_WRITABLE
+            cp_itrigger_vu: cross trap_from_vu, triggernum_itrigger, itrigger_ssi, outcome_vu;  // itrigger triggers * 2 outcomes
+        `endif
+    `endif
+    `endif
+    `endif
 endgroup
 
 covergroup SdtrigH_etrigger_cg with function sample(ins_t ins);
@@ -243,8 +269,16 @@ covergroup SdtrigH_etrigger_cg with function sample(ins_t ins);
     }
 
     // main coverpoints
-    cp_etrigger_vs: cross trap_from_vs, triggernum, etrigger_virtual, outcome_vs;  // NTRIG * 2 outcomes
-    cp_etrigger_vu: cross trap_from_vu, triggernum, etrigger_virtual, outcome_vu;  // NTRIG * 2 outcomes
+    `ifdef SDTRIG_ETRIGGER_ANY
+    `ifdef UDB_SDTRIG_ETRIGGER_SUPPORTED_EXCEPTIONS_22
+        `ifdef UDB_SDTRIG_VS_WRITABLE
+            cp_etrigger_vs: cross trap_from_vs, triggernum_etrigger, etrigger_virtual, outcome_vs;  // etrigger triggers * 2 outcomes
+        `endif
+        `ifdef UDB_SDTRIG_VU_WRITABLE
+            cp_etrigger_vu: cross trap_from_vu, triggernum_etrigger, etrigger_virtual, outcome_vu;  // etrigger triggers * 2 outcomes
+        `endif
+    `endif
+    `endif
 endgroup
 
 covergroup SdtrigH_textra_cg with function sample(ins_t ins);
@@ -252,10 +286,11 @@ covergroup SdtrigH_textra_cg with function sample(ins_t ins);
     `include "general/RISCV_coverage_standard_coverpoints.svh"
     `include "general/RISCV_coverage_sdtrig_coverpoints.svh"
 
+    // the guest modes whose icount vs/vu bit is writable
     guest_mode: coverpoint {ins.prev.mode_virt, ins.prev.mode} {
         type_option.weight = 0;
-        bins VS_mode = {3'b101};
-        bins VU_mode = {3'b100};
+        `ifdef UDB_SDTRIG_VS_WRITABLE bins VS_mode = {3'b101}; `endif
+        `ifdef UDB_SDTRIG_VU_WRITABLE bins VU_mode = {3'b100}; `endif
     }
     icount_point: coverpoint sdtrigh_icount_point(ins) {
         type_option.weight = 0;
@@ -298,11 +333,21 @@ covergroup SdtrigH_textra_cg with function sample(ins_t ins);
     }
 
     // main coverpoints
-    `ifdef UDB_MCONTEXT_AVAILABLE
-        cp_textra_mctx_sel:   cross guest_mode, triggernum, icount_point, mhselect_mctx, mctx_outcome;  // 2 modes * NTRIG * 2 selects * 2
+    `ifdef UDB_TDATA3_IMPLEMENTED
+    `ifdef SDTRIG_ICOUNT_ANY
+        `ifdef SDTRIG_TEXTRA_MCONTEXT
+            cp_textra_mctx_sel:   cross guest_mode, triggernum_icount, icount_point, mhselect_mctx, mctx_outcome;  // 2 modes * icount triggers * 2 selects * 2
+        `endif
+        `ifdef UDB_SDTRIG_TEXTRA_MHSELECT_VMID_MATCH
+        `ifndef UDB_SDTRIG_TEXTRA_MHVALUE_LEN_0
+            cp_textra_vmid_sel:   cross guest_mode, triggernum_icount, icount_point, mhselect_vmid, vmid_outcome;  // 2 modes * icount triggers * 2 selects * 2
+        `endif
+        `endif
+        `ifdef UDB_SDTRIG_TEXTRA_SSELECT_ASID_MATCH
+            cp_textra_vsatp_asid: cross guest_mode, triggernum_icount, icount_point, sselect_asid, asid_outcome;   // 2 modes * icount triggers * 2
+        `endif
     `endif
-    cp_textra_vmid_sel:   cross guest_mode, triggernum, icount_point, mhselect_vmid, vmid_outcome;      // 2 modes * NTRIG * 2 selects * 2
-    cp_textra_vsatp_asid: cross guest_mode, triggernum, icount_point, sselect_asid, asid_outcome;       // 2 modes * NTRIG * 2
+    `endif
 endgroup
 
 covergroup SdtrigH_context_cg with function sample(ins_t ins);
@@ -343,7 +388,7 @@ covergroup SdtrigH_context_cg with function sample(ins_t ins);
     }
 
     // main coverpoints
-    `ifdef UDB_HCONTEXT_AVAILABLE
+    `ifdef UDB_HCONTEXT_IMPLEMENTED
         cp_hcontext_hs: cross priv_mode_hs, csr_read_write, csr_hcontext;  // 2
         cp_hcontext_m:  cross priv_mode_m, csr_read_write, csr_hcontext;   // 2
     `endif

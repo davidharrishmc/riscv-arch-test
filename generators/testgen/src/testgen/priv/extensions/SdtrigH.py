@@ -12,7 +12,12 @@ The suite boots to HS-mode and enters VS-mode and VU-mode from HS-mode, arming t
 and SdtrigU do.  While a guest runs, medeleg[3] = hedeleg[3] = 1, so its breakpoints are taken into VS-mode, and
 vsstatus.SIE = 1: with that delegation the Sdtrig re-entrancy rule suppresses VS-mode triggers while vsstatus.SIE
 is 0 (VU-mode triggers are never suppressed).  A breakpoint taken into VS-mode writes no GVA bit, which an
-implementation may or may not set when an icount breakpoint writes zero to stval.
+implementation may or may not set when an icount breakpoint writes zero to stval.  On a hart whose medeleg[3] is
+read-only 0 the breakpoints are taken into M-mode instead.
+
+Each case is gated on the DUT's Sdtrig parameters from riscv-unified-db: the trigger types each tselect supports,
+the writable vs/vu bits, the itrigger and etrigger codes, the textra matches and their mhvalue/svalue lengths, and
+which context CSRs exist.
 
 itrigger and etrigger fire before the first instruction of the handler of the trap they match.  Their tests arm
 the trigger in M-mode with medeleg[3] = 0 and take an SSI or a virtual-instruction exception from the guest into
@@ -33,23 +38,31 @@ from testgen.data.test_chunk import TestChunk
 from testgen.priv.extensions.HCommon import ATP_GATE
 from testgen.priv.extensions.InterruptsCommon import guard_symbol
 from testgen.priv.extensions.SdtrigCommon import (
+    _ASID_X,
+    _MCONTEXT_MATCH_GATE,
     _TEXTRA_ASID_CASES,
     MODE_PRIVBIT,
-    UDB_DEFINES,
-    UDB_NUM_TRIGGERS,
+    SDTRIG_DEFINES,
+    TRIGGERS,
     _add_tc,
     _cause_interrupt,
     _clear_interrupt,
+    _close_gates,
     _config_etrigger,
     _config_icount,
     _config_itrigger,
     _config_mcontrol6,
     _csr_access,
     _disable_trigger,
+    _icount_gates,
+    _mcontrol6_gates,
+    _mode_writable,
     _set_medeleg,
     _sign_trap_count,
-    _textra3,
-    _xlen_li,
+    _svalue,
+    _textra_expr,
+    _xlen_li_expr,
+    _xsl_ifdefs,
 )
 from testgen.priv.extensions.StateenHCommon import hstateen0_bit, mstateen0_bit, read_in_mode
 from testgen.priv.extensions.sv.generate import guest_translation_setup, guest_translation_teardown, per_xlen
@@ -72,12 +85,16 @@ _VIRTUAL_INSTRUCTION = 22
 MSTATEEN0_CONTEXT = ("MSTATEEN0_HCONTEXT", "MSTATEEN0H_HCONTEXT")
 HSTATEEN0_CONTEXT = ("HSTATEEN0_SCONTEXT", "HSTATEEN0H_SCONTEXT")
 
-# (case, mcontext on RV32, mcontext on RV64): mhselect = 1/5 compares {mhvalue, mhselect[2]} with the low 7 (RV32)
-# or 14 (RV64) bits of mcontext, so one context of each parity matches only one of the two encodings
+# mhselect = 1/5 (2/6) compares {mhvalue, mhselect[2]} with mcontext (hgatp.VMID).  The contexts and VMIDs are
+# limited to the implemented {mhvalue, mhselect[2]} bits, so a case expected to match still matches.
+_MHVALUE_SEL_MASK = "((1 << (UDB_SDTRIG_TEXTRA_MHVALUE_LEN + 1)) - 1)"
+# (case, mcontext on RV32, mcontext on RV64): one context of each parity matches only one of the two encodings
 _MCTX_CONTEXTS = (("even", 0x54, 0x2AAA), ("odd", 0x55, 0x2AAB))
 # VMIDs for mhselect = 2/6, an even and an odd value that fit in hgatp.VMID
-_VMIDS = (("even", "((1 << UDB_VMID_WIDTH) - 2)"), ("odd", "((1 << UDB_VMID_WIDTH) - 1)"))
-_VSATP_ASID = "((1 << UDB_ASID_WIDTH) - 2)"
+_VMIDS = (
+    ("even", f"(((1 << UDB_VMID_WIDTH) - 2) & {_MHVALUE_SEL_MASK})"),
+    ("odd", f"(((1 << UDB_VMID_WIDTH) - 1) & {_MHVALUE_SEL_MASK})"),
+)
 
 
 def _mhselect_cases(odd: bool) -> list[tuple[str, int, int]]:
@@ -122,8 +139,9 @@ def _mode_bit_tests(test_data: TestData, mode: str) -> list[str]:
         ),
         *_enter_guest(mode, temp_reg),
     ]
-    for trig_num in range(UDB_NUM_TRIGGERS):
-        lines.append(f"\n#ifdef UDB_SDTRIG_MCONTROL6_SUPPORTED{trig_num}")
+    for trig_num in TRIGGERS:
+        gates = [*_mcontrol6_gates(trig_num, mode), *_xsl_ifdefs(0b010)]
+        lines.extend(gates)
         for name, priv in cases:
             lines.extend(
                 [
@@ -137,9 +155,10 @@ def _mode_bit_tests(test_data: TestData, mode: str) -> list[str]:
                     *_sign_trap_count(temp_reg, test_data),
                 ]
             )
-        lines.append(f"#endif // UDB_SDTRIG_MCONTROL6_SUPPORTED{trig_num}")
-    for trig_num in range(UDB_NUM_TRIGGERS):
-        lines.append(f"\n#ifdef UDB_ICOUNT_TRIG{trig_num}_AVAILABLE")
+        lines.extend(_close_gates(gates))
+    for trig_num in TRIGGERS:
+        gates = _icount_gates(trig_num, mode)
+        lines.extend(["", *gates])
         for name, priv in cases:
             lines.extend(
                 [
@@ -151,7 +170,7 @@ def _mode_bit_tests(test_data: TestData, mode: str) -> list[str]:
                     *_sign_trap_count(temp_reg, test_data),
                 ]
             )
-        lines.append(f"#endif // UDB_ICOUNT_TRIG{trig_num}_AVAILABLE")
+        lines.extend(_close_gates(gates))
     lines.extend(_leave_guest(temp_reg))
     test_data.int_regs.return_registers([cfg_reg, addr_reg, data_reg, temp_reg])
     return lines
@@ -177,8 +196,14 @@ def _trap_trigger_tests(test_data: TestData) -> list[str]:
         m = mode.lower()
         own = MODE_PRIVBIT[mode]
         cases = (("own", own), ("others", _ALL_PRIV ^ own))
-        for trig_num in range(UDB_NUM_TRIGGERS):
-            lines.extend([f"\n#ifdef UDB_ITRIGGER_TRIG{trig_num}_AVAILABLE", f"#ifdef {ssi_guard}"])
+        itrigger_gates = [
+            f"\n#ifdef {_mode_writable(mode)}",
+            f"#ifdef {ssi_guard}",
+            f"#ifdef UDB_SDTRIG_ITRIGGER_SUPPORTED_INTERRUPTS_{_SSI_CODE}",
+        ]
+        lines.extend(itrigger_gates)
+        for trig_num in TRIGGERS:
+            lines.append(f"#ifdef UDB_SDTRIG_ITRIGGER_SUPPORTED_TRIGGERS_{trig_num}")
             for name, priv in cases:
                 lines.extend(
                     [
@@ -195,9 +220,15 @@ def _trap_trigger_tests(test_data: TestData) -> list[str]:
                         *_sign_trap_count(temp_reg, test_data),
                     ]
                 )
-            lines.extend([f"#endif // {ssi_guard}", f"#endif // UDB_ITRIGGER_TRIG{trig_num}_AVAILABLE"])
-        for trig_num in range(UDB_NUM_TRIGGERS):
-            lines.append(f"\n#ifdef UDB_SDTRIG_ETRIGGER_SUPPORTED{trig_num}")
+            lines.append(f"#endif // UDB_SDTRIG_ITRIGGER_SUPPORTED_TRIGGERS_{trig_num}")
+        lines.extend(_close_gates(itrigger_gates))
+        etrigger_gates = [
+            f"\n#ifdef {_mode_writable(mode)}",
+            f"#ifdef UDB_SDTRIG_ETRIGGER_SUPPORTED_EXCEPTIONS_{_VIRTUAL_INSTRUCTION}",
+        ]
+        lines.extend(etrigger_gates)
+        for trig_num in TRIGGERS:
+            lines.append(f"#ifdef UDB_SDTRIG_ETRIGGER_SUPPORTED_TRIGGERS_{trig_num}")
             for name, priv in cases:
                 lines.extend(
                     [
@@ -210,43 +241,52 @@ def _trap_trigger_tests(test_data: TestData) -> list[str]:
                         *_sign_trap_count(temp_reg, test_data),
                     ]
                 )
-            lines.append(f"#endif // UDB_SDTRIG_ETRIGGER_SUPPORTED{trig_num}")
+            lines.append(f"#endif // UDB_SDTRIG_ETRIGGER_SUPPORTED_TRIGGERS_{trig_num}")
+        lines.extend(_close_gates(etrigger_gates))
     lines.extend([*_set_medeleg(temp_reg, 3, True), "RVTEST_TSBI_GOTO_SMODE"])
     test_data.int_regs.return_registers([cfg_reg, data_reg, temp_reg])
     return lines
 
 
 def _icount_textra_case(
-    test_data: TestData, mode: str, binname: str, coverpoint: str, tdata3: list[str], regs: tuple[int, int], sign: bool
+    test_data: TestData,
+    mode: str,
+    binname: str,
+    coverpoint: str,
+    tdata3: list[str],
+    regs: tuple[int, int],
+    sign_in_hs: bool = False,
 ) -> list[str]:
-    """Arm an icount trigger (count = 1) for mode with tdata3 on each trigger, run to the marker, and disarm it."""
+    """Arm an icount trigger (count = 1) for mode with tdata3 on each trigger, run to the marker, disarm it, and sign
+    the trap count, in HS-mode when sign_in_hs."""
     cfg_reg, temp_reg = regs
     lines: list[str] = []
-    for trig_num in range(UDB_NUM_TRIGGERS):
+    for trig_num in TRIGGERS:
+        gates = _icount_gates(trig_num, mode)
         lines.extend(
             [
-                f"#ifdef UDB_ICOUNT_TRIG{trig_num}_AVAILABLE",
+                *gates,
                 _add_tc(test_data, f"trig_num_{trig_num}_{binname}", coverpoint, "SdtrigH_textra_cg"),
                 *_config_icount(cfg_reg, trig_num, 1, mode, tdata3=tdata3),
                 "nop # counted",
                 *_MARKER,
                 *_disable_trigger(cfg_reg, trig_num, mode),
-                *(_sign_trap_count(temp_reg, test_data) if sign else []),
-                f"#endif // UDB_ICOUNT_TRIG{trig_num}_AVAILABLE",
+                *(["RVTEST_TSBI_GOTO_SMODE"] if sign_in_hs else []),
+                *_sign_trap_count(temp_reg, test_data),
+                *([_GOTO[mode]] if sign_in_hs else []),
+                *_close_gates(gates),
             ]
         )
     return lines
 
 
-def _mhselect_tdata3(reg: int, mhselect: int, mhvalue32: str, mhvalue64: str) -> list[str]:
-    """tdata3 with mhselect and an mhvalue given as an assembler expression."""
-    return [
-        "#if __riscv_xlen == 64",
-        f"LI(x{reg}, ((({mhvalue64}) & 0x1FFF) << 51) | ({mhselect} << 48))",
-        "#else",
-        f"LI(x{reg}, ((({mhvalue32}) & 0x3F) << 26) | ({mhselect} << 23))",
-        "#endif",
-    ]
+def _mhselect_tdata3(reg: int, mhselect: int, value32: str, value64: str, flip: int) -> list[str]:
+    """tdata3 with mhselect and mhvalue = (value >> 1) ^ flip, for assembler expressions value32 and value64."""
+    return _xlen_li_expr(
+        reg,
+        _textra_expr(32, mhselect=mhselect, mhvalue=f"(({value32}) >> 1) ^ {flip}"),
+        _textra_expr(64, mhselect=mhselect, mhvalue=f"(({value64}) >> 1) ^ {flip}"),
+    )
 
 
 def _textra_mctx_tests(test_data: TestData) -> list[str]:
@@ -259,36 +299,31 @@ def _textra_mctx_tests(test_data: TestData) -> list[str]:
             "textra mhselect = 1 and 5: icount fires in VS-mode and VU-mode only when {mhvalue, mhselect[2]}\n"
             "equals the low bits of mcontext, for an even and an odd mcontext",
         ),
-        "#ifdef UDB_MCONTEXT_AVAILABLE",
+        _MCONTEXT_MATCH_GATE,
     ]
     for mode in GUESTS:
         lines.extend(_enter_guest(mode, temp_reg))
         for ctx_name, ctx32, ctx64 in _MCTX_CONTEXTS:
+            ctx = (f"(0x{ctx32:x} & {_MHVALUE_SEL_MASK})", f"(0x{ctx64:x} & {_MHVALUE_SEL_MASK})")
             lines.extend(
                 [
-                    *_xlen_li(temp_reg, ctx32, ctx64),
+                    *_xlen_li_expr(temp_reg, *ctx),
                     _csr_access(f"csrw mcontext, x{temp_reg} # mcontext = {ctx_name} context", mode),
                 ]
             )
             for case, mhselect, flip in _mhselect_cases(ctx_name == "odd"):
-                tdata3 = _xlen_li(
-                    cfg_reg,
-                    _textra3(32, mhselect=mhselect, mhvalue=(ctx32 >> 1) ^ flip),
-                    _textra3(64, mhselect=mhselect, mhvalue=(ctx64 >> 1) ^ flip),
-                )
                 lines.extend(
                     _icount_textra_case(
                         test_data,
                         mode,
                         f"{mode.lower()}_{ctx_name}_{case}",
                         coverpoint,
-                        tdata3,
+                        _mhselect_tdata3(cfg_reg, mhselect, *ctx, flip),
                         (cfg_reg, temp_reg),
-                        sign=True,
                     )
                 )
         lines.extend([_csr_access("csrw mcontext, x0 # clear the test context", mode), *_leave_guest(temp_reg)])
-    lines.append("#endif // UDB_MCONTEXT_AVAILABLE")
+    lines.append("#endif // mcontext textra match")
     test_data.int_regs.return_registers([cfg_reg, temp_reg])
     return lines
 
@@ -303,7 +338,10 @@ def _textra_vmid_tests(test_data: TestData) -> list[str]:
             "textra mhselect = 2 and 6: icount fires in VS-mode and VU-mode only when {mhvalue, mhselect[2]}\n"
             "equals hgatp.VMID, for an even and an odd VMID.  hgatp identity maps the test image",
         ),
-        f"#if ({ATP_GATE['hgatp']}) && UDB_VMID_WIDTH >= 2",
+        (
+            f"#if ({ATP_GATE['hgatp']}) && UDB_VMID_WIDTH >= 2 && defined(UDB_SDTRIG_TEXTRA_MHSELECT_VMID_MATCH) "
+            "&& UDB_SDTRIG_TEXTRA_MHVALUE_LEN > 0"
+        ),
         *per_xlen(lambda g, _: guest_translation_setup(test_data, g, None, "VSmode")),
     ]
     for vmid_name, vmid in _VMIDS:
@@ -326,20 +364,18 @@ def _textra_vmid_tests(test_data: TestData) -> list[str]:
         for mode in GUESTS:
             lines.extend(_enter_guest(mode, temp_reg))
             for case, mhselect, flip in _mhselect_cases(odd):
-                mhvalue = f"(({vmid}) >> 1) ^ {flip}"
                 lines.extend(
                     _icount_textra_case(
                         test_data,
                         mode,
                         f"{mode.lower()}_{vmid_name}_{case.replace('sel1', 'sel2').replace('sel5', 'sel6')}",
                         coverpoint,
-                        _mhselect_tdata3(cfg_reg, mhselect + 1, mhvalue, mhvalue),
+                        _mhselect_tdata3(cfg_reg, mhselect + 1, vmid, vmid, flip),
                         (cfg_reg, temp_reg),
-                        sign=True,
                     )
                 )
             lines.extend(_leave_guest(temp_reg))
-    lines.extend([*guest_translation_teardown(test_data), "#endif // hgatp Sv39x4/Sv32x4, VMID"])
+    lines.extend([*guest_translation_teardown(test_data), "#endif // hgatp Sv39x4/Sv32x4, VMID textra match"])
     test_data.int_regs.return_registers([cfg_reg, temp_reg, vmid_reg])
     return lines
 
@@ -353,9 +389,12 @@ def _textra_asid_tests(test_data: TestData) -> list[str]:
             coverpoint,
             "textra sselect = 2: icount fires in VS-mode and VU-mode only when the low ASIDMAX bits of svalue\n"
             "equal vsatp.ASID = X (satp.ASID = 0).  vsatp identity maps the test image.  VU-mode cannot write\n"
-            "the signature through that supervisor map, so its trap count is signed in HS-mode",
+            "the signature through that supervisor map, so its trap counts are signed in HS-mode",
         ),
-        f"#if ({ATP_GATE['vsatp']}) && UDB_ASID_WIDTH >= 2",
+        (
+            f"#if ({ATP_GATE['vsatp']}) && UDB_ASID_WIDTH >= 2 && defined(UDB_SDTRIG_TEXTRA_SSELECT_ASID_MATCH) "
+            "&& UDB_SDTRIG_TEXTRA_SVALUE_LEN >= UDB_ASID_WIDTH"
+        ),
     ]
     for mode in GUESTS:
         priv_mode = f"{mode.upper()}mode"
@@ -363,9 +402,9 @@ def _textra_asid_tests(test_data: TestData) -> list[str]:
             [
                 *per_xlen(lambda _, vs, priv=priv_mode: guest_translation_setup(test_data, None, vs, priv)),
                 "#if __riscv_xlen == 64",
-                f"LI(x{asid_reg}, ({_VSATP_ASID} << 44))",
+                f"LI(x{asid_reg}, ({_ASID_X} << 44))",
                 "#else",
-                f"LI(x{asid_reg}, ({_VSATP_ASID} << 22))",
+                f"LI(x{asid_reg}, ({_ASID_X} << 22))",
                 "#endif",
                 f"csrs vsatp, x{asid_reg} # vsatp.ASID = X",
                 "hfence.vvma",
@@ -373,17 +412,13 @@ def _textra_asid_tests(test_data: TestData) -> list[str]:
             ]
         )
         for case_name, sv, masked in _TEXTRA_ASID_CASES:
-            sv64 = sv.replace("ASIDMAX", "16").replace("X", _VSATP_ASID)
-            sv32 = sv.replace("ASIDMAX", "9").replace("X", _VSATP_ASID)
-            mask64 = f" | 0x{_textra3(64, sbytemask=0xF):x}" if masked else ""
-            mask32 = f" | 0x{_textra3(32, sbytemask=0x3):x}" if masked else ""
-            tdata3 = [
-                "#if __riscv_xlen == 64",
-                f"LI(x{cfg_reg}, ((({sv64}) & 0xFFFFFFFF) << 2){mask64} | 2)",
-                "#else",
-                f"LI(x{cfg_reg}, ((({sv32}) & 0xFFFF) << 2){mask32} | 2)",
-                "#endif",
-            ]
+            sv64 = sv.replace("ASIDMAX", "16").replace("X", _ASID_X)
+            sv32 = sv.replace("ASIDMAX", "9").replace("X", _ASID_X)
+            tdata3 = _xlen_li_expr(
+                cfg_reg,
+                _textra_expr(32, sselect=2, svalue=_svalue(sv32), sbytemask=0x3 if masked else 0),
+                _textra_expr(64, sselect=2, svalue=_svalue(sv64), sbytemask=0xF if masked else 0),
+            )
             lines.extend(
                 _icount_textra_case(
                     test_data,
@@ -392,14 +427,12 @@ def _textra_asid_tests(test_data: TestData) -> list[str]:
                     coverpoint,
                     tdata3,
                     (cfg_reg, temp_reg),
-                    sign=mode == "Vs",
+                    sign_in_hs=mode == "Vu",
                 )
             )
         lines.extend(_leave_guest(temp_reg))
-        if mode == "Vu":
-            lines.extend(_sign_trap_count(temp_reg, test_data))
         lines.extend(guest_translation_teardown(test_data))
-    lines.append("#endif // vsatp Sv39/Sv32, ASID")
+    lines.append("#endif // vsatp Sv39/Sv32, ASID textra match")
     test_data.int_regs.return_registers([cfg_reg, temp_reg, asid_reg])
     return lines
 
@@ -419,7 +452,7 @@ def _hcontext_alias_tests(test_data: TestData) -> list[str]:
             "mcontext and read hcontext in HS-mode; write hcontext in M-mode and read mcontext.  Reads are\n"
             "checked in the low UDB_DBG_HCONTEXT_WIDTH bits, because an implementation may tie upper bits to 0",
         ),
-        "#ifdef UDB_HCONTEXT_AVAILABLE",
+        "#ifdef UDB_HCONTEXT_IMPLEMENTED",
         f"LI(x{mask}, ((1 << UDB_DBG_HCONTEXT_WIDTH) - 1))",
     ]
     for name, value in (("ones", -1), ("random", random_int(14, signed=False))):
@@ -452,7 +485,7 @@ def _hcontext_alias_tests(test_data: TestData) -> list[str]:
             *check(),
             "csrw mcontext, x0",
             "RVTEST_TSBI_GOTO_SMODE",
-            "#endif // UDB_HCONTEXT_AVAILABLE",
+            "#endif // UDB_HCONTEXT_IMPLEMENTED",
         ]
     )
     test_data.int_regs.return_registers([rs, rd, mask])
@@ -506,7 +539,7 @@ def _context_access_tests(test_data: TestData) -> list[str]:
     "SdtrigH",
     required_extensions=["H", "Sdtrig"],
     march_extensions=["H"],
-    extra_defines=[*UDB_DEFINES, "#define BOOT_TO_SMODE"],
+    extra_defines=[*SDTRIG_DEFINES, "#define BOOT_TO_SMODE"],
 )
 def make_sdtrigh(test_data: TestData) -> list[TestChunk]:
     """Generate tests for the SdtrigH suite."""
