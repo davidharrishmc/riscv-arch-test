@@ -40,9 +40,10 @@ IMSIC_STATEEN_ON = (
 )
 
 
-def _gei(op: str, gei: int, tmp_reg: int) -> list[str]:
-    """Raise (SET) or clear (CLR) guest external interrupt gei through the platform, and wait for hgeip."""
-    return [f"RVMODEL_{op}_GUEST_EXT_INT({gei}, a1, a2)", f"RVTEST_IDLE_FOR_INTERRUPT(x{tmp_reg})"]
+def _gei(op: str, gei: int, tmp_reg: int, mode: str = "S") -> list[str]:
+    """Raise (SET) or clear (CLR) guest external interrupt gei from mode M or S through the platform, and wait for
+    hgeip."""
+    return [f"RVTEST_{op}_GUEST_EXT_INT_{mode}({gei})", f"RVTEST_IDLE_FOR_INTERRUPT(x{tmp_reg})"]
 
 
 def _mip_tests(test_data: TestData) -> list[str]:
@@ -54,13 +55,13 @@ def _mip_tests(test_data: TestData) -> list[str]:
         comment_banner("cp_mip_gilen", "With guest external interrupt 1 pending and enabled in hgeie, read mip"),
         f"LI(x{tmp_reg}, 2)",
         f"csrw hgeie, x{tmp_reg}",
-        *_gei("SET", 1, tmp_reg),
+        *_gei("SET", 1, tmp_reg, "M"),
         f"LI(x{tmp_reg}, MIP_HS_MASK)",
         test_data.add_testcase("hgeip_1", "cp_mip_gilen", _CG_M),
         f"csrr x{check_reg}, mip",
         f"and x{check_reg}, x{check_reg}, x{tmp_reg}",
         write_sigupd(check_reg, test_data),
-        *_gei("CLR", 1, tmp_reg),
+        *_gei("CLR", 1, tmp_reg, "M"),
         "csrw hgeie, zero",
         "RVTEST_TSBI_GOTO_SMODE",
         "#endif // UDB_SGEI_INTR_IMPL",
