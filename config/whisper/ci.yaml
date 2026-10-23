@@ -14,7 +14,11 @@
 ci_enabled: true
 # SstcH, SstcHSm: whisper-rv64-max-notime, whose time CSR does not exist, does not raise VSTIP when time +
 #   htimedelta >= vstimecmp (SstcHSm_vstip with vstimecmp = 0 never sees hip.VSTIP); whisper-rv64-max passes (no issue filed)
-exclude_extensions: "SdtrigSm_csr_access_common,SdtrigSm_csr_access_global,SdtrigSm_tcontrol,SdtrigS_csr_access_common,SdtrigS_csr_access_global,Ssstrict_Sm_CSR,Ssstrict_S_CSR,Smstateen,SstcH,SstcHSm"
+# SdtrigH_mode_bits_vs, SdtrigH_mode_bits_vu, SdtrigH_textra_asid, SdtrigH_textra_mctx, SdtrigH_textra_vmid (max configs):
+#   Whisper applies one tdata1 write mask to every trigger type. The masks keep bits 26:25 (mcontrol6 uncertain/hit1)
+#   read-only, which also makes icount vs/vu (RV64) and icount vu (RV32) read-only, so an icount trigger never fires in
+#   VS/VU-mode although SDTRIG_VS_WRITABLE/SDTRIG_VU_WRITABLE (and Sail) make them writable.
+exclude_extensions: "SdtrigSm_csr_access_common,SdtrigSm_csr_access_global,SdtrigSm_tcontrol,SdtrigS_csr_access_common,SdtrigS_csr_access_global,Ssstrict_Sm_CSR,Ssstrict_S_CSR,Smstateen,SstcH,SstcHSm,SdtrigH_mode_bits_vs,SdtrigH_mode_bits_vu,SdtrigH_textra_asid,SdtrigH_textra_mctx,SdtrigH_textra_vmid"
 install_script: ".github/scripts/install-whisper.sh"
 apt_packages: "libboost-program-options-dev"
 shards: 2
