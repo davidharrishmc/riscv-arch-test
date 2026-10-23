@@ -28,7 +28,7 @@ CG = "ExceptionsHSm_cg"
 
 
 def _ecall_ebreak_tests(test_data: TestData) -> list[str]:
-    """ecall and ebreak from each mode; the M-mode trap record holds mstatus.MPP/MPIE/MIE and MPV/GVA."""
+    """ecall and ebreak from each mode, taken in M-mode; the ebreak trap record holds mstatus.MPP/MPIE/MIE and MPV/GVA."""
     lines = [
         comment_banner(
             "cp_ecall_to_m, cp_ebreak_to_m",
@@ -40,7 +40,7 @@ def _ecall_ebreak_tests(test_data: TestData) -> list[str]:
             [
                 *([f"RVTEST_TSBI_GOTO_{mode.upper()}MODE"] if mode != "m" else []),
                 test_data.add_testcase(mode, "cp_ecall_to_m", CG),
-                "RVTEST_TSBI_ECALL_RECORD",
+                "RVTEST_TSBI_ECALL_TEST",
                 test_data.add_testcase(mode, "cp_ebreak_to_m", CG),
                 "ebreak",
                 *(["RVTEST_TSBI_GOTO_MMODE"] if mode != "m" else []),

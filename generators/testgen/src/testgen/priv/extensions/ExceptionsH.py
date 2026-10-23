@@ -32,13 +32,13 @@ HEDELEGH_GATE = "__riscv_xlen == 32 && defined(SM1P13P0_OR_LATER_SUPPORTED)"
 
 
 def _ecall_tests(test_data: TestData) -> list[str]:
-    """Ecalls recorded in the trap signature by the HS-mode and VS-mode handlers, and traps through vstvec."""
+    """Ecalls taken in HS-mode and VS-mode, and traps through vstvec."""
     temp_reg = test_data.int_regs.get_register()
     lines = [
         comment_banner(
             "cp_ecall_to_hs",
-            "With hedeleg = 0, ecall from U, VS and VU modes with hstatus.SPVP = 0 and 1.  The trap record holds\n"
-            "sstatus.SPP/SPIE/SIE and hstatus.SPVP/SPV/GVA; SPVP changes only for traps from VS and VU",
+            "With hedeleg = 0, ecall from U, VS and VU modes with hstatus.SPVP = 0 and 1.  SPVP changes only for traps\n"
+            "from VS and VU",
         ),
         "csrw hedeleg, zero",
     ]
@@ -50,7 +50,7 @@ def _ecall_tests(test_data: TestData) -> list[str]:
                     f"{'csrs' if spvp else 'csrc'} hstatus, x{temp_reg}",
                     f"RVTEST_TSBI_GOTO_{mode.upper()}MODE",
                     test_data.add_testcase(f"{mode}_spvp{spvp}", "cp_ecall_to_hs", CG),
-                    "RVTEST_TSBI_ECALL_RECORD",
+                    "RVTEST_TSBI_ECALL_TEST",
                     "RVTEST_TSBI_GOTO_SMODE",
                 ]
             )
@@ -58,8 +58,7 @@ def _ecall_tests(test_data: TestData) -> list[str]:
         [
             comment_banner(
                 "cp_ecall_to_vs",
-                "With hedeleg[8] = 1, ecall from VU-mode with vsstatus.SIE = 0 and 1.  The VS-mode trap record holds\n"
-                "vsstatus.SPP/SPIE/SIE",
+                "With hedeleg[8] = 1, ecall from VU-mode with vsstatus.SIE = 0 and 1",
             ),
             f"LI(x{temp_reg}, 1 << CAUSE_USER_ECALL)",
             f"csrw hedeleg, x{temp_reg}",
@@ -71,7 +70,7 @@ def _ecall_tests(test_data: TestData) -> list[str]:
                 f"{'csrsi' if sie else 'csrci'} vsstatus, SSTATUS_SIE",
                 "RVTEST_TSBI_GOTO_VUMODE",
                 test_data.add_testcase(f"vu_sie{sie}", "cp_ecall_to_vs", CG),
-                "RVTEST_TSBI_ECALL_RECORD",
+                "RVTEST_TSBI_ECALL_TEST",
                 "RVTEST_TSBI_GOTO_SMODE",
             ]
         )
@@ -92,7 +91,7 @@ def _ecall_tests(test_data: TestData) -> list[str]:
             test_data.add_testcase("vu_ebreak", "cp_vstvec", CG),
             "ebreak",
             test_data.add_testcase("vu_ecall", "cp_vstvec", CG),
-            "RVTEST_TSBI_ECALL_RECORD",
+            "RVTEST_TSBI_ECALL_TEST",
             "RVTEST_TSBI_GOTO_SMODE",
             "csrw hedeleg, zero",
         ]
