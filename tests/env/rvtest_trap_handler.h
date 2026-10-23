@@ -117,14 +117,11 @@
 //                     forwards GOTO_M, M-mode CSR_ACCESS, and loads/stores to M-mode via ecall
 //    VS-mode handler: receives calls from VU-mode when hedeleg[8]=1. It handles
 //                     ECALL_TEST and GOTO_VS/VU locally and forwards everything
-//                     else to HS-mode via ecall. A forwarded GOTO_M/S/U (or legacy
-//                     a0=0 call) leaves the guest: the HS handler recognizes the
-//                     ecall at tsbi_Vforward_goto_ecall and resumes the VU caller
+//                     else to HS-mode via ecall. A forwarded GOTO_M/S/U leaves the
+//                     guest: the HS handler recognizes the ecall at
+//                     tsbi_Vforward_goto_ecall and resumes the VU caller
 //                     instead of the VS handler. An ecall from VS-mode (cause 10)
 //                     always goes to HS-mode because hedeleg[10] is read-only 0.
-//
-//  CSR_ACCESS from a guest runs in HS-mode, so S-mode CSR numbers access the
-//  HS-mode CSRs. A guest must use the vs* CSR numbers to access its own state.
 //
 //  CSR_ACCESS from a guest runs in HS-mode, so S-mode CSR numbers access the
 //  HS-mode CSRs. A guest must use the vs* CSR numbers to access its own state.
@@ -420,7 +417,7 @@
 //
 // Each direction checks that xEPC really lies in the mapping it is moving out of, so
 // a test that registers an alias but resumes somewhere else is left alone, as is one
-// that never registers an alias. Uses T1-T4 and T6; a0 = GOTO operation code.
+// that never registers an alias. Uses T2-T4; a0 = GOTO operation code.
 //
 // M and S service different callers, so they get different halves:
 //   M handles GOTO_UMODE, whose caller runs in the code region, and it is the only
@@ -841,7 +838,7 @@
   .option push
   .option norvc                                  // ensure consistent code size
   li a0, \encoding                               // a0 = CSR instruction encoding (32-bit value)
-  ecall                                          // trap to handler; handler executes CSR instr dynamically
+  ecall                                          // trap to handler; handler executes the matching CSR instr from its table
   // a0 now contains the CSR read result (if rd==a0 in the encoding)
   .option pop
 .endm
@@ -903,16 +900,11 @@
         #define  RVMODEL_CLR_MEXT_INT(_R1, _R2) RVTEST_DFLT_INT_HNDLR  // M-mode ext interrupt clear: abort
 #endif
 
-// S-mode interrupt defaults
-#ifndef RVMODEL_CLR_STIMER_INT
-        #define  RVMODEL_CLR_STIMER_INT  RVTEST_DFLT_INT_HNDLR  // S-mode timer interrupt clear: abort
-#endif
+// The S-mode timer interrupt has no RVMODEL macro: STIP comes from stimecmp or an M-mode write.
 // RVMODEL_CLR_SEXT_INT has no default: when undefined, rvtest_clr_sext_int_* clear mip.SEIP instead
 
-// VS-level interrupts need no RVMODEL macros: they are raised and cleared through
-// hvip (RVTEST_SET/CLR_VS*_INT_* in utils.h). A guest external interrupt (hgeip bit
-// _GEI) can only be raised by the platform, through the optional
-// RVMODEL_SET_GUEST_EXT_INT(_GEI, _R1, _R2) and RVMODEL_CLR_GUEST_EXT_INT(_GEI, _R1, _R2).
+// VS-level interrupts have no RVMODEL macros (utils.h raises them through hvip). Guest external
+// interrupts use RVMODEL_SET/CLR_GUEST_EXT_INT(_M), which check_defines.h requires when GEILEN > 0.
 
 
 //==============================================================================
@@ -1317,8 +1309,8 @@ common_\__MODE__\()handler:                      // entered with T6 = vector add
 //
 // The jr T5 above is an indirect jump through a register other than x1/x5/x7,
 // so when Zicfilp is enabled in this mode it sets ELP=LP_EXPECTED. The entry
-// therefore starts with a 4-byte-aligned lpad 0 (auipc x0, 0), which is a HINT
-// that executes as a no-op when Zicfilp is not implemented or not enabled.
+// therefore starts with a 4-byte-aligned lpad 0 (auipc x0, 0), which is a
+// no-op when Zicfilp is not implemented or not enabled.
 
         .p2align 2                               // landing pad must be 4-byte aligned
 common_\__MODE__\()entry:                       // common entry for all traps in this mode
@@ -1561,9 +1553,9 @@ tsbi_\__MODE__\()goto_vu:
 // VS-MODE HANDLER:
 //   - ECALL_TEST, GOTO_VSMODE (vsstatus.SPP=1) and GOTO_VUMODE
 //     (vsstatus.SPP=0) are handled locally.
-//   - GOTO_MMODE/SMODE/UMODE and the legacy a0=0 call leave the guest, which
-//     only HS-mode can do: tsbi_Vforward_goto makes the call from
-//     tsbi_Vforward_goto_ecall, where the HS handler resumes the VU caller.
+//   - GOTO_MMODE/SMODE/UMODE leave the guest, which only HS-mode can do:
+//     tsbi_Vforward_goto makes the call from tsbi_Vforward_goto_ecall, where
+//     the HS handler resumes the VU caller.
 //   - Everything else is forwarded to HS-mode, which returns to the VS handler.
 //
 // FORWARDING MECHANISM:
@@ -1601,7 +1593,9 @@ tsbi_\__MODE__\()goto_vu:
 
         // The VS handler forwarded a VU caller's GOTO_M/S/U: resume that caller at vsepc,
         // and undo the VU->VS trap as the VS handler's sret would have (vsstatus.SIE = SPIE,
-        // SPIE = 1, SPP = 0) and as a VU->HS trap would have left hstatus (SPVP = 0).
+        // SPIE = 1, SPP = 0, and SDT = 0 with Ssdbltrp and SPELP = 0 with Zicfilp) and as a
+        // VU->HS trap would have left hstatus (SPVP = 0). The caller's ELP, which sret would
+        // restore from SPELP, is NO_LP_EXPECTED: it executed an ecall, not a landing pad.
         csrr    T3, CSR_VSEPC
         csrw    CSR_XEPC, T3
         csrr    T3, CSR_VSSTATUS
@@ -1610,6 +1604,10 @@ tsbi_\__MODE__\()goto_vu:
         andi    T3, T3, ~(SSTATUS_SIE | SSTATUS_SPP)
         ori     T3, T3, SSTATUS_SPIE
         or      T3, T3, T2
+    #if defined(SSDBLTRP_SUPPORTED) || defined(ZICFILP_SUPPORTED)
+        LI(     T2, ~(SSTATUS_SDT | SSTATUS_SPELP))  // read-only zero when not implemented
+        and     T3, T3, T2
+    #endif
         csrw    CSR_VSSTATUS, T3
         LI(     T3, HSTATUS_SPVP)
         csrc    CSR_HSTATUS, T3
@@ -1915,15 +1913,9 @@ tsbi_instr_table:
         TSBI_CSR_INSTR_TABLE(0x306) // mcounteren
         TSBI_CSR_INSTR_TABLE(0x30A) // menvcfg
         TSBI_CSR_INSTR_TABLE(0x30C) // mstateen0
-        TSBI_CSR_INSTR_TABLE(0x30D) // mstateen1
-        TSBI_CSR_INSTR_TABLE(0x30E) // mstateen2
-        TSBI_CSR_INSTR_TABLE(0x30F) // mstateen3
         TSBI_CSR_INSTR_TABLE(0x31C) // mstateen0h
         #if (UDB_MXLEN==32)
         TSBI_CSR_INSTR_TABLE(0x31A) // menvcfgh
-        TSBI_CSR_INSTR_TABLE(0x31D) // mstateen1h
-        TSBI_CSR_INSTR_TABLE(0x31E) // mstateen2h
-        TSBI_CSR_INSTR_TABLE(0x31F) // mstateen3h
         #endif
         TSBI_CSR_INSTR_TABLE(0x344) // mip
         TSBI_CSR_INSTR_TABLE(0x350) // miselect
@@ -2763,10 +2755,9 @@ excpt_\__MODE__\()hndlr_tbl:
 #endif
 
 #ifdef S_SUPPORTED
-\__MODE__\()clr_Stmr_int:                            // S-mode timer interrupt
-        RVTEST_CLR_STIMER_INT
-        la      T2, resto_\__MODE__\()rtn
-        jr      T2
+\__MODE__\()clr_Stmr_int:                            // S-mode timer interrupt: STIP comes from stimecmp or
+        la      T2, resto_\__MODE__\()rtn            //   an M-mode mip write, which the test clears;
+        jr      T2                                   //   the handler has masked STIE
 
 \__MODE__\()clr_Sext_int:                            // S-mode external interrupt
         CLR_INT_ENTER
@@ -2808,18 +2799,16 @@ excpt_\__MODE__\()hndlr_tbl:
 \__MODE__\()clr_Sext_int:
         RVTEST_DFLT_INT_HNDLR
 
-\__MODE__\()clr_Stmr_int:                            // S-mode timer interrupt
-        RVTEST_CLR_STIMER_INT
-        la      T2, resto_\__MODE__\()rtn
-        jr      T2
+\__MODE__\()clr_Stmr_int:                            // S-mode timer interrupt: STIP comes from stimecmp or
+        la      T2, resto_\__MODE__\()rtn            //   an M-mode mip write, which the test clears;
+        jr      T2                                   //   the handler has masked STIE
 
 #endif
 
 #ifdef H_SUPPORTED
 // VS-level interrupts are raised through hvip, which M-mode and HS-mode clear
 // directly and the VS handler clears through T-SBI. A VS-level timer interrupt
-// from vstimecmp or a guest external interrupt from hgeip stays pending; the
-// handler has already masked it in hie (vsie).
+// from vstimecmp stays pending; the handler has already masked it in hie (vsie).
 \__MODE__\()clr_Vsw_int:                             // VS-level software interrupt: hvip.VSSIP
         CLR_INT_ENTER
   .ifc \__MODE__ , V
@@ -2847,9 +2836,36 @@ excpt_\__MODE__\()hndlr_tbl:
   .endif
         CLR_INT_RETURN \__MODE__
 
-\__MODE__\()clr_Sgei_int:                            // guest external interrupt: hgeip stays set until
-        la      T2, resto_\__MODE__\()rtn            //   RVMODEL_CLR_GUEST_EXT_INT; hie.SGEIE is masked
-        jr      T2
+// A guest external interrupt is pending while any bit of hgeip & hgeie is set. hgeip is
+// read-only, so each pending guest interrupt is cleared through the platform. SGEI is
+// never delegated to VS-mode.
+#ifdef RVTEST_SGEI_INTR_IMPL
+\__MODE__\()clr_Sgei_int:                            // supervisor guest external interrupt
+  .ifc \__MODE__ , V
+        RVTEST_DFLT_INT_HNDLR
+  .else
+        CLR_INT_ENTER
+        csrr    T3, CSR_HGEIP                        // T3 = pending guest external interrupts
+        li      T4, 0                                // T4 = guest external interrupt number
+1:      srli    T3, T3, 1                            // bit 0 is read-only zero
+        addi    T4, T4, 1
+        beqz    T3, 3f                               // no more pending
+        andi    T2, T3, 1
+        beqz    T2, 1b
+        mv      a0, T4                               // clear guest external interrupt T4
+    .ifc \__MODE__ , M
+        jal     rvtest_clr_guest_ext_int_m
+    .else
+        jal     rvtest_clr_guest_ext_int_su
+    .endif
+        j       1b
+3:
+        CLR_INT_RETURN \__MODE__
+  .endif
+#else
+\__MODE__\()clr_Sgei_int:                            // no guest interrupt files: hgeip is always 0
+        RVTEST_DFLT_INT_HNDLR
+#endif
 #endif
 
 \__MODE__\()clr_Lcof_int:                            // local counter overflow interrupt

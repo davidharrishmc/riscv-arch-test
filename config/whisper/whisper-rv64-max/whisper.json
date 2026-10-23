@@ -47,7 +47,7 @@
   },
 
   "csr": {
-    "time": { "exists": "true" },
+    "time": { "exists": "false" }, // Exercise M-mode emulation of time reads from S-mode and U-mode.
     "vstart": {
       "mask": "0xff",
       "poke_mask": "0xff"
@@ -65,12 +65,9 @@
       "poke_mask": "0x3eee" //determines what bits of mip can be set by simulator injecting external events
     },
     "mideleg": {
-      "mask": "0x3666" // [LCOFIP, SEIP, STIP, SSIP] writable; H makes SGEIP, VSEIP, VSTIP and VSSIP read-only one
+      "mask": "0x3666" // determines what bits of mideleg can be set by M-mode software [SEIP, STIP, SSIP]
     },
     "stvec": {
-      "mask": "0xFFFFFFFFFFFFFFFD" // don't allow setting MODE field to 2 (reserved)
-    },
-    "vstvec": {
       "mask": "0xFFFFFFFFFFFFFFFD" // don't allow setting MODE field to 2 (reserved)
     },
     "mcounteren": {
@@ -78,26 +75,6 @@
     },
     "scounteren": {
       "mask": "0x000007FF"
-    },
-    "hcounteren": {
-      "mask": "0x000007FF"
-    },
-    "hstatus": {
-      "mask": "0x0073f3c0" // VSBE read-only zero: VS-mode is little-endian (VS_MODE_ENDIANNESS)
-    },
-    // Whisper leaves bit 63 (SE) of mstateen1-3 read-only zero unless given a mask, but it must
-    // be writable with H (norm:mstateen_bit_63_roz).
-    "mstateen1": {
-      "mask": "0x8000000000000000",
-      "poke_mask": "0x8000000000000000"
-    },
-    "mstateen2": {
-      "mask": "0x8000000000000000",
-      "poke_mask": "0x8000000000000000"
-    },
-    "mstateen3": {
-      "mask": "0x8000000000000000",
-      "poke_mask": "0x8000000000000000"
     }
   },
 
@@ -188,23 +165,63 @@
   "triggers": [
     {
       "reset": [0, 0, 0, "0x1008078"],
-      "mask": ["0xfc00000007ffffff", "0xffffffffffffffff", "0x0", 0],
-      "poke_mask": ["0xfc00000007ffffff", "0xffffffffffffffff", "0x0", 0]
+      "mask": [
+        "0xfc00000001ffffff",
+        "0xffffffffffffffff",
+        "0xffffffffffffffff",
+        0
+      ],
+      "poke_mask": [
+        "0xfc00000001ffffff",
+        "0xffffffffffffffff",
+        "0xffffffffffffffff",
+        0
+      ]
     },
     {
       "reset": [0, 0, 0, "0x1008078"],
-      "mask": ["0xfc00000007ffffff", "0xffffffffffffffff", "0x0", 0],
-      "poke_mask": ["0xfc00000007ffffff", "0xffffffffffffffff", "0x0", 0]
+      "mask": [
+        "0xfc00000001ffffff",
+        "0xffffffffffffffff",
+        "0xffffffffffffffff",
+        0
+      ],
+      "poke_mask": [
+        "0xfc00000001ffffff",
+        "0xffffffffffffffff",
+        "0xffffffffffffffff",
+        0
+      ]
     },
     {
       "reset": [0, 0, 0, "0x1008078"],
-      "mask": ["0xfc00000007ffffff", "0xffffffffffffffff", "0x0", 0],
-      "poke_mask": ["0xfc00000007ffffff", "0xffffffffffffffff", "0x0", 0]
+      "mask": [
+        "0xfc00000001ffffff",
+        "0xffffffffffffffff",
+        "0xffffffffffffffff",
+        0
+      ],
+      "poke_mask": [
+        "0xfc00000001ffffff",
+        "0xffffffffffffffff",
+        "0xffffffffffffffff",
+        0
+      ]
     },
     {
       "reset": [0, 0, 0, "0x1008078"],
-      "mask": ["0xfc00000007ffffff", "0xffffffffffffffff", "0x0", 0],
-      "poke_mask": ["0xfc00000007ffffff", "0xffffffffffffffff", "0x0", 0]
+      "mask": [
+        "0xfc00000001ffffff",
+        "0xffffffffffffffff",
+        "0xffffffffffffffff",
+        0
+      ],
+      "poke_mask": [
+        "0xfc00000001ffffff",
+        "0xffffffffffffffff",
+        "0xffffffffffffffff",
+        0
+      ]
     }
   ]
 }
