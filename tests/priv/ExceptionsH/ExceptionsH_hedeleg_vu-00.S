@@ -15,7 +15,7 @@
 ##### END_TEST_CONFIG #####
 
 // Define the size of the signature region
-#define SIGUPD_COUNT 10
+#define SIGUPD_COUNT 21
 
 // Extra defines (if needed) to enable trap handlers, fpu, vector, etc.
 #define BOOT_TO_SMODE
@@ -206,7 +206,10 @@ ExceptionsH_cg_cp_hedeleg_store_access_fault_hdlg_0x00000_vu:
 #endif
 #endif
 ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00000_vu:
-  RVTEST_TSBI_ECALL_RECORD  # the trap record shows which mode took the ecall and its cause
+  RVTEST_TSBI_ECALL_TEST  # test ecall to execution environment that just returns
+# ecall returns xepc in a0 (x10).  Store a0 in signature as proof ecall took place.
+  # Check if x10 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x10, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00000_vu, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00000_vu_str)
   RVTEST_TSBI_GOTO_SMODE
   LI(x9, 0x1)
   csrw hedeleg, x9
@@ -380,7 +383,10 @@ ExceptionsH_cg_cp_hedeleg_store_access_fault_hdlg_0x00001_vu:
 #endif
 #endif
 ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00001_vu:
-  RVTEST_TSBI_ECALL_RECORD  # the trap record shows which mode took the ecall and its cause
+  RVTEST_TSBI_ECALL_TEST  # test ecall to execution environment that just returns
+# ecall returns xepc in a0 (x10).  Store a0 in signature as proof ecall took place.
+  # Check if x10 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x10, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00001_vu, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00001_vu_str)
   RVTEST_TSBI_GOTO_SMODE
   LI(x9, 0x2)
   csrw hedeleg, x9
@@ -554,7 +560,10 @@ ExceptionsH_cg_cp_hedeleg_store_access_fault_hdlg_0x00002_vu:
 #endif
 #endif
 ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00002_vu:
-  RVTEST_TSBI_ECALL_RECORD  # the trap record shows which mode took the ecall and its cause
+  RVTEST_TSBI_ECALL_TEST  # test ecall to execution environment that just returns
+# ecall returns xepc in a0 (x10).  Store a0 in signature as proof ecall took place.
+  # Check if x10 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x10, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00002_vu, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00002_vu_str)
   RVTEST_TSBI_GOTO_SMODE
   LI(x9, 0x4)
   csrw hedeleg, x9
@@ -728,7 +737,10 @@ ExceptionsH_cg_cp_hedeleg_store_access_fault_hdlg_0x00004_vu:
 #endif
 #endif
 ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00004_vu:
-  RVTEST_TSBI_ECALL_RECORD  # the trap record shows which mode took the ecall and its cause
+  RVTEST_TSBI_ECALL_TEST  # test ecall to execution environment that just returns
+# ecall returns xepc in a0 (x10).  Store a0 in signature as proof ecall took place.
+  # Check if x10 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x10, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00004_vu, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00004_vu_str)
   RVTEST_TSBI_GOTO_SMODE
   LI(x9, 0x8)
   csrw hedeleg, x9
@@ -902,7 +914,10 @@ ExceptionsH_cg_cp_hedeleg_store_access_fault_hdlg_0x00008_vu:
 #endif
 #endif
 ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00008_vu:
-  RVTEST_TSBI_ECALL_RECORD  # the trap record shows which mode took the ecall and its cause
+  RVTEST_TSBI_ECALL_TEST  # test ecall to execution environment that just returns
+# ecall returns xepc in a0 (x10).  Store a0 in signature as proof ecall took place.
+  # Check if x10 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x10, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00008_vu, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00008_vu_str)
   RVTEST_TSBI_GOTO_SMODE
   LI(x9, 0x10)
   csrw hedeleg, x9
@@ -1076,7 +1091,10 @@ ExceptionsH_cg_cp_hedeleg_store_access_fault_hdlg_0x00010_vu:
 #endif
 #endif
 ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00010_vu:
-  RVTEST_TSBI_ECALL_RECORD  # the trap record shows which mode took the ecall and its cause
+  RVTEST_TSBI_ECALL_TEST  # test ecall to execution environment that just returns
+# ecall returns xepc in a0 (x10).  Store a0 in signature as proof ecall took place.
+  # Check if x10 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x10, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00010_vu, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00010_vu_str)
   RVTEST_TSBI_GOTO_SMODE
   LI(x9, 0x20)
   csrw hedeleg, x9
@@ -1250,7 +1268,10 @@ ExceptionsH_cg_cp_hedeleg_store_access_fault_hdlg_0x00020_vu:
 #endif
 #endif
 ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00020_vu:
-  RVTEST_TSBI_ECALL_RECORD  # the trap record shows which mode took the ecall and its cause
+  RVTEST_TSBI_ECALL_TEST  # test ecall to execution environment that just returns
+# ecall returns xepc in a0 (x10).  Store a0 in signature as proof ecall took place.
+  # Check if x10 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x10, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00020_vu, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00020_vu_str)
   RVTEST_TSBI_GOTO_SMODE
   LI(x9, 0x40)
   csrw hedeleg, x9
@@ -1424,7 +1445,10 @@ ExceptionsH_cg_cp_hedeleg_store_access_fault_hdlg_0x00040_vu:
 #endif
 #endif
 ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00040_vu:
-  RVTEST_TSBI_ECALL_RECORD  # the trap record shows which mode took the ecall and its cause
+  RVTEST_TSBI_ECALL_TEST  # test ecall to execution environment that just returns
+# ecall returns xepc in a0 (x10).  Store a0 in signature as proof ecall took place.
+  # Check if x10 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x10, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00040_vu, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00040_vu_str)
   RVTEST_TSBI_GOTO_SMODE
   LI(x9, 0x80)
   csrw hedeleg, x9
@@ -1598,7 +1622,10 @@ ExceptionsH_cg_cp_hedeleg_store_access_fault_hdlg_0x00080_vu:
 #endif
 #endif
 ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00080_vu:
-  RVTEST_TSBI_ECALL_RECORD  # the trap record shows which mode took the ecall and its cause
+  RVTEST_TSBI_ECALL_TEST  # test ecall to execution environment that just returns
+# ecall returns xepc in a0 (x10).  Store a0 in signature as proof ecall took place.
+  # Check if x10 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x10, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00080_vu, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00080_vu_str)
   RVTEST_TSBI_GOTO_SMODE
   LI(x9, 0x100)
   csrw hedeleg, x9
@@ -1772,7 +1799,10 @@ ExceptionsH_cg_cp_hedeleg_store_access_fault_hdlg_0x00100_vu:
 #endif
 #endif
 ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00100_vu:
-  RVTEST_TSBI_ECALL_RECORD  # the trap record shows which mode took the ecall and its cause
+  RVTEST_TSBI_ECALL_TEST  # test ecall to execution environment that just returns
+# ecall returns xepc in a0 (x10).  Store a0 in signature as proof ecall took place.
+  # Check if x10 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x10, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00100_vu, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0x00100_vu_str)
   RVTEST_TSBI_GOTO_SMODE
   LI(x9, 0xcb1ff)
   csrw hedeleg, x9
@@ -1946,7 +1976,10 @@ ExceptionsH_cg_cp_hedeleg_store_access_fault_hdlg_0xcb1ff_vu:
 #endif
 #endif
 ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0xcb1ff_vu:
-  RVTEST_TSBI_ECALL_RECORD  # the trap record shows which mode took the ecall and its cause
+  RVTEST_TSBI_ECALL_TEST  # test ecall to execution environment that just returns
+# ecall returns xepc in a0 (x10).  Store a0 in signature as proof ecall took place.
+  # Check if x10 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x10, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0xcb1ff_vu, ExceptionsH_cg_cp_hedeleg_ecall_hdlg_0xcb1ff_vu_str)
   RVTEST_TSBI_GOTO_SMODE
   csrw hedeleg, x13
 

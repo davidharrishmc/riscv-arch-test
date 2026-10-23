@@ -233,7 +233,7 @@ def guest_access(
     va_reg, data = test_data.int_regs.get_registers(2)
     if sv is not None:
         address = virtual_address(
-            sv, va, level, destination=f"x{va_reg}", physical_address="svh_page", scratch=f"x{data}"
+            sv, va, level, destination=va_reg, physical_address="svh_page", scratch=data
         )
     else:
         address = [f"{'LA' if va_is_label else 'LI'}(x{va_reg}, {va})"]
@@ -816,7 +816,7 @@ def _t_page_sizes(test_data: TestData, test_chunks: list[TestChunk], g: SvMode, 
             regs = (pte, addr, tmp)
             setup = [
                 *virtual_address(
-                    g, hex(g_base), g_level, destination=f"x{gpa}", physical_address="svh_page", scratch=f"x{tmp}"
+                    g, hex(g_base), g_level, destination=gpa, physical_address="svh_page", scratch=tmp
                 ),
                 *create_page_walk(vs, leaf_level=vs_level, virtual_address=hex(vs_base), regs=regs),
                 *write_pte(

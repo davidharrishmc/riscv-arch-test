@@ -15,7 +15,7 @@
 ##### END_TEST_CONFIG #####
 
 // Define the size of the signature region
-#define SIGUPD_COUNT 10
+#define SIGUPD_COUNT 12
 
 // Extra defines (if needed) to enable trap handlers, fpu, vector, etc.
 #define BOOT_TO_MMODE
@@ -206,7 +206,10 @@ ExceptionsHSm_cg_cp_hedeleg_store_access_fault_hdlg_0x00000_vs:
 #endif
 #endif
 ExceptionsHSm_cg_cp_hedeleg_ecall_hdlg_0x00000_vs:
-  RVTEST_TSBI_ECALL_RECORD  # the trap record shows which mode took the ecall and its cause
+  RVTEST_TSBI_ECALL_TEST  # test ecall to execution environment that just returns
+# ecall returns xepc in a0 (x10).  Store a0 in signature as proof ecall took place.
+  # Check if x10 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x10, ExceptionsHSm_cg_cp_hedeleg_ecall_hdlg_0x00000_vs, ExceptionsHSm_cg_cp_hedeleg_ecall_hdlg_0x00000_vs_str)
   RVTEST_TSBI_GOTO_MMODE
   LI(x15, 0xcb1ff)
   csrw hedeleg, x15
@@ -380,7 +383,10 @@ ExceptionsHSm_cg_cp_hedeleg_store_access_fault_hdlg_0xcb1ff_vs:
 #endif
 #endif
 ExceptionsHSm_cg_cp_hedeleg_ecall_hdlg_0xcb1ff_vs:
-  RVTEST_TSBI_ECALL_RECORD  # the trap record shows which mode took the ecall and its cause
+  RVTEST_TSBI_ECALL_TEST  # test ecall to execution environment that just returns
+# ecall returns xepc in a0 (x10).  Store a0 in signature as proof ecall took place.
+  # Check if x10 contains the expected result. x2 is the signature ptr, x5 is the link ptr, x4 is a temp reg.
+  RVTEST_SIGUPD(x2, x5, x4, x10, ExceptionsHSm_cg_cp_hedeleg_ecall_hdlg_0xcb1ff_vs, ExceptionsHSm_cg_cp_hedeleg_ecall_hdlg_0xcb1ff_vs_str)
   RVTEST_TSBI_GOTO_MMODE
   csrw hedeleg, x6
 

@@ -223,10 +223,10 @@ def _guest_mappings(test_data: TestData, g: SvMode, vs: SvMode, user: bool, gvas
                 mode,
                 mode.data_va,
                 0,
-                destination=f"x{gva}",
+                destination=gva,
                 physical_address="TEST_FOR_EXECUTION",
                 merge_sv32_base_page=True,
-                scratch=f"x{pte}",
+                scratch=pte,
             )
         )
     test_data.int_regs.return_registers([pte, addr, tmp])

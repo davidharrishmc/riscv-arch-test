@@ -618,11 +618,11 @@ SvZicbo_cg_cp_misaligned_page_cbo_u_test19_inval:
 
 #ifdef RVMODEL_ACCESS_FAULT_ADDRESS
   // Test case 20: Access fault on the page-table walk | Test in U-Mode | expected = Store access fault
-  PTE_SETUP_SV48(RVMODEL_ACCESS_FAULT_ADDRESS, (PTE_V), va_data, LEVEL3)
+  PTE_SETUP_SV48(((RVMODEL_ACCESS_FAULT_ADDRESS + 7) & ~7), (PTE_V), (((va_data) & ~0x7fc0000000) | (((((RVMODEL_ACCESS_FAULT_ADDRESS + 7) & ~7) & 0xFFF) / 8) << 30)), LEVEL3)
   SUPERPAGE_PTE_SETUP_SV48(rvtest_data_1, (PTE_A | PTE_D | PTE_U | PTE_X | PTE_W | PTE_R | PTE_V), va_data, LEVEL2)
   sfence.vma
 
-  LI(x13, (va_data >> 30) << 30)
+  LI(x13, ((((va_data) & ~0x7fc0000000) | (((((RVMODEL_ACCESS_FAULT_ADDRESS + 7) & ~7) & 0xFFF) / 8) << 30)) >> 30) << 30)
   LA(x14, rvtest_data_1)
   slli x14, x14, 34
   srli x14, x14, 34
@@ -1047,12 +1047,12 @@ SvZicbo_cg_cp_misaligned_page_cbo_u_test33_inval:
 
 #ifdef RVMODEL_ACCESS_FAULT_ADDRESS
   // Test case 34: Access fault on the page-table walk | Test in U-Mode | expected = Store access fault
-  PTE_SETUP_SV48(rvtest_slvl2_pg_tbl, (PTE_V), va_data, LEVEL3)
-  PTE_SETUP_SV48(RVMODEL_ACCESS_FAULT_ADDRESS, (PTE_V), va_data, LEVEL2)
+  PTE_SETUP_SV48(rvtest_slvl2_pg_tbl, (PTE_V), (((va_data) & ~0x3fe00000) | (((((RVMODEL_ACCESS_FAULT_ADDRESS + 7) & ~7) & 0xFFF) / 8) << 21)), LEVEL3)
+  PTE_SETUP_SV48(((RVMODEL_ACCESS_FAULT_ADDRESS + 7) & ~7), (PTE_V), (((va_data) & ~0x3fe00000) | (((((RVMODEL_ACCESS_FAULT_ADDRESS + 7) & ~7) & 0xFFF) / 8) << 21)), LEVEL2)
   SUPERPAGE_PTE_SETUP_SV48(rvtest_data_1, (PTE_A | PTE_D | PTE_U | PTE_X | PTE_W | PTE_R | PTE_V), va_data, LEVEL1)
   sfence.vma
 
-  LI(x13, (va_data >> 21) << 21)
+  LI(x13, ((((va_data) & ~0x3fe00000) | (((((RVMODEL_ACCESS_FAULT_ADDRESS + 7) & ~7) & 0xFFF) / 8) << 21)) >> 21) << 21)
   LA(x14, rvtest_data_1)
   slli x14, x14, 43
   srli x14, x14, 43
@@ -1490,13 +1490,13 @@ SvZicbo_cg_cp_PTE_nonleaf_lvl0_cbo_u_test47_inval:
 
 #ifdef RVMODEL_ACCESS_FAULT_ADDRESS
   // Test case 48: Access fault on the page-table walk | Test in U-Mode | expected = Store access fault
-  PTE_SETUP_SV48(rvtest_slvl2_pg_tbl, (PTE_V), va_data, LEVEL3)
-  PTE_SETUP_SV48(rvtest_slvl1_pg_tbl, (PTE_V), va_data, LEVEL2)
-  PTE_SETUP_SV48(RVMODEL_ACCESS_FAULT_ADDRESS, (PTE_V), va_data, LEVEL1)
+  PTE_SETUP_SV48(rvtest_slvl2_pg_tbl, (PTE_V), (((va_data) & ~0x1ff000) | (((((RVMODEL_ACCESS_FAULT_ADDRESS + 7) & ~7) & 0xFFF) / 8) << 12)), LEVEL3)
+  PTE_SETUP_SV48(rvtest_slvl1_pg_tbl, (PTE_V), (((va_data) & ~0x1ff000) | (((((RVMODEL_ACCESS_FAULT_ADDRESS + 7) & ~7) & 0xFFF) / 8) << 12)), LEVEL2)
+  PTE_SETUP_SV48(((RVMODEL_ACCESS_FAULT_ADDRESS + 7) & ~7), (PTE_V), (((va_data) & ~0x1ff000) | (((((RVMODEL_ACCESS_FAULT_ADDRESS + 7) & ~7) & 0xFFF) / 8) << 12)), LEVEL1)
   PTE_SETUP_SV48(rvtest_data_1, (PTE_D | PTE_A | PTE_U | PTE_X | PTE_W | PTE_R | PTE_V), va_data, LEVEL0)
   sfence.vma
 
-  LI(x13, (va_data >> 12) << 12)
+  LI(x13, ((((va_data) & ~0x1ff000) | (((((RVMODEL_ACCESS_FAULT_ADDRESS + 7) & ~7) & 0xFFF) / 8) << 12)) >> 12) << 12)
   LI(x14, RVMODEL_ACCESS_FAULT_ADDRESS)
   slli x14, x14, 52
   srli x14, x14, 52

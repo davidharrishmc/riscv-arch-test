@@ -582,11 +582,11 @@ SvZicbo_cg_cp_PTE_nonleaf_lvl0_cbo_u_test19_inval:
 
 #ifdef RVMODEL_ACCESS_FAULT_ADDRESS
   // Test case 20: Access fault on the page-table walk | Test in U-Mode | expected = Store access fault
-  PTE_SETUP_SV32(RVMODEL_ACCESS_FAULT_ADDRESS, (PTE_V), va_data, LEVEL1)
+  PTE_SETUP_SV32(((RVMODEL_ACCESS_FAULT_ADDRESS + 3) & ~3), (PTE_V), (((va_data) & ~0x3ff000) | (((((RVMODEL_ACCESS_FAULT_ADDRESS + 3) & ~3) & 0xFFF) / 4) << 12)), LEVEL1)
   PTE_SETUP_SV32(rvtest_data_1, (PTE_D | PTE_A | PTE_U | PTE_X | PTE_W | PTE_R | PTE_V), va_data, LEVEL0)
   sfence.vma
 
-  LI(x8, va_data)
+  LI(x8, (((va_data) & ~0x3ff000) | (((((RVMODEL_ACCESS_FAULT_ADDRESS + 3) & ~3) & 0xFFF) / 4) << 12)))
   RVTEST_TSBI_GOTO_UMODE
   addi x9, x9, 16
 SvZicbo_cg_cp_nonleaf_PTE_to_nonexistent_pa_cbo_test20_clean:
