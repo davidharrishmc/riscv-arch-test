@@ -144,3 +144,6 @@
 --override cpu*/amo_trigger=T
 # Sdtrig: no tcontrol, so breakpoint reentrancy follows mstatus.MIE/SIE, which Sail models
 --override cpu*/tcontrol_undefined=T
+# Sdtrig: implemented mcontext (hcontext) and scontext bits, as DBG_HCONTEXT_WIDTH and DBG_SCONTEXT_WIDTH in the UDB config
+--override cpu*/mcontext_bits=14
+--override cpu*/scontext_bits=32
