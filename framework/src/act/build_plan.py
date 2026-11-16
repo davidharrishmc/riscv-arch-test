@@ -15,9 +15,10 @@ from pathlib import Path
 import pyjson5
 
 from act.build_types import COVERAGE_STEP_TIMEOUT_SECONDS, BuildTask, PythonAction, SubprocessAction, SymlinkAction
-from act.config import Config, CoverageSimulator, RefModelType, spike_isa_string
+from act.config import Config, CoverageSimulator, RefModelType
 from act.coverreport import generate_report, merge_summaries
 from act.parse_test_constraints import TestMetadata
+from act.sail_to_rvvi import sailLog2Trace
 from act.sig_modify import process_signature_file
 from act.toolchain import Toolchain
 from act.trap_report import generate_trap_report
@@ -27,12 +28,9 @@ from act.trap_report import generate_trap_report
 # -d: disassemble executable sections
 # -S: intermix original source lines with each disassembled instruction (requires DWARF debug info)
 # -M no-aliases,numeric: suppress pseudo-instructions; use numeric register names (x0–x31, f0–f31)
-_OBJDUMP_FLAGS_COMMON = ["-x", "-d", "-S", "-M", "no-aliases,numeric"]
-
-# Extra flags added in debug mode:
 # -t: print the full symbol table
 # -s: print a full hex+ASCII dump of every section
-_OBJDUMP_FLAGS_DEBUG = [*_OBJDUMP_FLAGS_COMMON, "-t", "-s"]
+_OBJDUMP_FLAGS = ["-x", "-d", "-S", "-M", "no-aliases,numeric", "-t", "-s"]
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -102,13 +100,6 @@ def _ref_model_sig_cmd(
         cmd.extend(config.ref_model_type.signature_flags(sig_file, xlen // 8))
         cmd.append(str(sig_elf))
         return cmd
-    if config.ref_model_type == RefModelType.SPIKE:
-        cmd = [str(config.ref_model_exe), f"--isa={spike_isa_string(xlen)}"]
-        if debug:
-            cmd.extend(["-l", "--log-commits", f"--log={sig_trace_file}"])
-        cmd.extend(config.ref_model_type.signature_flags(sig_file, xlen // 8))
-        cmd.append(str(sig_elf))
-        return cmd
     raise ValueError(f"Unsupported reference model type: {config.ref_model_type}")
 
 
@@ -130,7 +121,6 @@ def gen_compile_tasks(
     c_runtime_sources: tuple[Path, ...] = (),
     ref_model_inputs: tuple[Path, ...] = (),
     debug: bool = False,
-    fast: bool = False,
     enable_experimental_extensions: bool = False,
 ) -> list[BuildTask]:
     """Generate BuildTasks for the compilation pipeline of a single test.
@@ -150,8 +140,7 @@ def gen_compile_tasks(
         compile_inputs: Shared inputs for compilation.
         c_runtime_sources: Runtime sources compiled into C tests.
         ref_model_inputs: Shared inputs for the reference model (e.g. sail.json for Sail).
-        debug: Whether to generate debug output (signature objdump and trace files).
-        fast: Whether to disable objdump generation for faster builds.
+        debug: Whether to generate debug output (objdumps, trace files, and trap reports).
     """
     tasks: list[BuildTask] = []
 
@@ -174,7 +163,7 @@ def gen_compile_tasks(
         "-mcmodel=medany",
         "-nostdlib",
         f"-I{env_dir}",
-        f"-I{base_dir.absolute()}",
+        f"-I{base_dir.absolute() / 'env'}",
     ]
     if enable_experimental_extensions:
         compile_prefix.append("-DENABLE_EXPERIMENTAL_EXTENSIONS")
@@ -235,7 +224,7 @@ def gen_compile_tasks(
                     outputs=(objdump_file,),
                     deps=(sig_elf,),
                     action=SubprocessAction(
-                        cmd=[str(config.objdump_exe), *_OBJDUMP_FLAGS_DEBUG, str(sig_elf)],
+                        cmd=[str(config.objdump_exe), *_OBJDUMP_FLAGS, str(sig_elf)],
                         stdout_file=objdump_file,
                     ),
                 )
@@ -310,16 +299,15 @@ def gen_compile_tasks(
         )
     )
 
-    # 4a. final.elf.objdump (optional, not in fast mode)
-    if not fast and config.objdump_exe is not None:
+    # 4a. final.elf.objdump (optional, debug only)
+    if debug and config.objdump_exe is not None:
         objdump_file = Path(f"{final_elf}.objdump")
-        objdump_flags = _OBJDUMP_FLAGS_DEBUG if debug else _OBJDUMP_FLAGS_COMMON
         tasks.append(
             BuildTask(
                 outputs=(objdump_file,),
                 deps=(final_elf,),
                 action=SubprocessAction(
-                    cmd=[str(config.objdump_exe), *objdump_flags, str(final_elf)],
+                    cmd=[str(config.objdump_exe), *_OBJDUMP_FLAGS, str(final_elf)],
                     stdout_file=objdump_file,
                 ),
             )
@@ -333,12 +321,13 @@ def gen_rvvi_tasks(
     base_dir: Path,
     config: Config,
     ref_model_inputs: tuple[Path, ...] = (),
-    fast: bool = False,
+    debug: bool = False,
     enable_experimental_extensions: bool = False,
 ) -> list[BuildTask]:
     """Generate BuildTasks for RVVI trace generation (coverage pipeline).
 
-    Only supported when the reference model is Sail, which writes the RVVI-TEXT trace.
+    Only supported when the reference model is Sail; the converter parses Sail's
+    trace format.
     """
     if config.ref_model_type != RefModelType.SAIL:
         raise ValueError(
@@ -352,11 +341,12 @@ def gen_rvvi_tasks(
     elf_dir = base_dir / "elfs"
     elf = elf_dir / test_name.with_suffix(".elf")
     objdump_link = coverage_dir / test_name.with_suffix(".elf.objdump")
+    sail_trace = coverage_dir / test_name.with_suffix(".trace")
     sail_log = coverage_dir / test_name.with_suffix(".log")
     rvvi_trace = coverage_dir / test_name.with_suffix(".rvvi")
 
     # Symlink objdump into coverage dir
-    if not fast and config.objdump_exe is not None:
+    if debug and config.objdump_exe is not None:
         objdump_orig_file = Path(f"{elf}.objdump")
         tasks.append(
             BuildTask(
@@ -366,15 +356,16 @@ def gen_rvvi_tasks(
             )
         )
 
-    # Run Sail with RVVI-TEXT trace output
+    # Run Sail with trace
     sail_cmd = [str(config.ref_model_exe)]
     if enable_experimental_extensions:
         sail_cmd.append("--enable-experimental-extensions")
     sail_cmd.extend(
         [
-            "--trace-rvvi-text",
-            "--rvvi-text-output",
-            str(rvvi_trace),
+            "--trace",
+            "--trace-ptw",
+            "--trace-output",
+            str(sail_trace),
             "--config",
             str(config.dut_include_dir / "sail.json"),
             str(elf),
@@ -382,10 +373,20 @@ def gen_rvvi_tasks(
     )
     tasks.append(
         BuildTask(
-            outputs=(rvvi_trace,),
+            outputs=(sail_trace,),
             deps=(elf,),
             extra_inputs=ref_model_inputs,
             action=SubprocessAction(cmd=sail_cmd, stdout_file=sail_log),
+            intermediate=True,
+        )
+    )
+
+    # Convert to RVVI
+    tasks.append(
+        BuildTask(
+            outputs=(rvvi_trace,),
+            deps=(sail_trace,),
+            action=PythonAction(fn=sailLog2Trace, args=(sail_trace, rvvi_trace)),
             intermediate=True,
         )
     )
@@ -405,10 +406,15 @@ def gen_coverage_tasks(
     dry_run: bool = False,
     enable_experimental_extensions: bool = False,
     exclude_sm: bool = False,
+    jobs: int = 1,
 ) -> list[BuildTask]:
     """Generate BuildTasks for coverage UCDB generation, reports, and summary merging."""
     tasks: list[BuildTask] = []
     coverage_reports: list[Path] = []
+    # Split this config's job share across its Verilator builds so the total stays near jobs.
+    simulator_build_env: tuple[tuple[str, str], ...] = ()
+    if coverage_simulator == CoverageSimulator.VERILATOR:
+        simulator_build_env = (("VERILATOR_BUILD_JOBS", str(max(1, jobs // len(coverage_targets)))),)
 
     # Resolve package resources once for use in commands and dependency tracking.
     # Uses importlib.resources.files() which returns a real filesystem path when the
@@ -526,7 +532,9 @@ def gen_coverage_tasks(
                 outputs=(simulator_artifact,),
                 deps=rvvi_deps,
                 extra_inputs=coverage_inputs if dry_run else (*coverage_inputs, tracelist_file),
-                action=SubprocessAction(cmd=coverage_cmd, stdout_file=simulator_log, cwd=coverage_dir),
+                action=SubprocessAction(
+                    cmd=coverage_cmd, stdout_file=simulator_log, cwd=coverage_dir, env=simulator_build_env
+                ),
                 intermediate=True,
                 timeout=COVERAGE_STEP_TIMEOUT_SECONDS,
             )
@@ -563,7 +571,7 @@ def gen_coverage_tasks(
 # Top-level build plan construction
 # ---------------------------------------------------------------------------
 
-_COVERAGE_GROUPS_WITHOUT_COVERPOINTS = frozenset({Path("priv/H")})
+_COVERAGE_GROUPS_WITHOUT_COVERPOINTS: frozenset[Path] = frozenset()
 
 
 def generate_build_plan(
@@ -576,11 +584,11 @@ def generate_build_plan(
     coverage_enabled: bool,
     coverage_simulator: CoverageSimulator,
     debug: bool = False,
-    fast: bool = False,
     verbose: bool = False,
     dry_run: bool = False,
     enable_experimental_extensions: bool = False,
     exclude_sm: bool = False,
+    jobs: int = 1,
 ) -> list[BuildTask]:
     """Build the full DAG of tasks for a single config."""
     if coverage_enabled and config.ref_model_type != RefModelType.SAIL:
@@ -605,10 +613,10 @@ def generate_build_plan(
     env_files = tuple(sorted(p.absolute() for p in env_dir.iterdir() if p.is_file()))
     c_runtime_sources = tuple((env_dir / name).absolute() for name in ("c_test_start.S", "c_test_support.c"))
     dut_headers = tuple(sorted(p.absolute() for p in config.dut_include_dir.iterdir() if p.suffix == ".h"))
-    udb_headers = tuple(sorted(p.absolute() for p in config_wkdir.iterdir() if p.suffix == ".h"))
+    udb_headers = tuple(sorted(p.absolute() for p in (config_wkdir / "env").iterdir() if p.suffix == ".h"))
     compile_inputs = (*env_files, *dut_headers, *udb_headers, config.linker_script.absolute())
 
-    # Sail config affects reference model output (Spike has no equivalent file).
+    # Sail config affects reference model output.
     ref_model_inputs: tuple[Path, ...] = ()
     # sail_macros.h is included by every test, so the platform defines are needed
     # whatever the reference model is; only the model's own inputs are Sail-specific.
@@ -635,7 +643,6 @@ def generate_build_plan(
                 c_runtime_sources,
                 ref_model_inputs,
                 debug,
-                fast,
                 enable_experimental_extensions,
             )
         )
@@ -669,7 +676,7 @@ def generate_build_plan(
                     config_wkdir,
                     config,
                     ref_model_inputs,
-                    fast,
+                    debug,
                     enable_experimental_extensions,
                 )
             )
@@ -682,13 +689,14 @@ def generate_build_plan(
                 coverpoint_dir,
                 config_coverage_dir,
                 config_report_dir,
-                config_wkdir,
+                config_wkdir / "env",
                 tests_dir / "env",
                 coverage_simulator,
                 verbose,
                 dry_run,
                 enable_experimental_extensions,
                 exclude_sm,
+                jobs,
             )
         )
 

@@ -16,6 +16,7 @@ module testbench;
 
   // Load configuration
   `include "rvtest_config.svh"
+  `include "derived_config.svh"
 
   // Set up variable lengths
   localparam XLEN = `UDB_MXLEN;
@@ -28,7 +29,7 @@ module testbench;
     localparam FLEN = 32;
   `endif
 
-  localparam VLEN = `UDB_VLEN;
+  localparam VLEN = (`UDB_VLEN > 0) ? `UDB_VLEN : 64;   // no V: size the unused vector trace fields
 
   // Trace file handling
   string  traceFileList, traceFile;

@@ -21,7 +21,6 @@
  *
  */
 
-`define NUM_REGS 32
 `define NUM_CSRS 4096
 
 `define RVVI_TRACE_VERSION_MAJOR 1
@@ -67,6 +66,12 @@ interface rvviTrace
     parameter int RETIRE      = 1,    // Number of instructions that can retire during valid event
     parameter int CLIENTS_MAX = 5     // number of RVVI clients
 );
+    `ifdef E_SUPPORTED
+        localparam NUM_REGS = 16;
+    `else
+        localparam NUM_REGS = 32;
+    `endif
+
     //
     // RISCV output signals
     //
@@ -82,8 +87,8 @@ interface rvviTrace
     wire [(XLEN-1):0]         pc_rdata   [(NHART-1):0][(RETIRE-1):0];   // PC of instruction
 
     // X Registers
-    wire [31:0][(XLEN-1):0]   x_wdata    [(NHART-1):0][(RETIRE-1):0];   // X data value
-    wire [31:0]               x_wb       [(NHART-1):0][(RETIRE-1):0];   // X data writeback (change) flag
+    wire [NUM_REGS-1:0][(XLEN-1):0] x_wdata [(NHART-1):0][(RETIRE-1):0];   // X data value
+    wire [NUM_REGS-1:0]             x_wb    [(NHART-1):0][(RETIRE-1):0];   // X data writeback (change) flag
 
     // F Registers
     wire [31:0][(FLEN-1):0]   f_wdata    [(NHART-1):0][(RETIRE-1):0];   // F data value

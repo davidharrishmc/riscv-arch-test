@@ -7,9 +7,7 @@
 # Generate txt coverage reports from coverage database
 ##################################
 
-import os
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -332,13 +330,13 @@ def _parse_verilator_report(report: str) -> list[CoverageEntry]:
     return entries
 
 
-def _verilator_report_executable() -> str:
-    override = os.environ.get("VERILATOR_COVERAGE")
-    if override:
-        return override
+_VERILATOR_COMMON_PREFIX = re.compile(r"RISCV_coverage_pkg::RISCV_coverage#\([\d,]+\)::")
 
-    verilator = shutil.which(os.environ.get("VERILATOR", "verilator"))
-    return str(Path(verilator).with_name("verilator_coverage")) if verilator else "verilator_coverage"
+
+def _shorten_verilator_report(report: str) -> str:
+    """Remove the common covergroup prefix and close the gap before each metric colon."""
+    lines = [re.sub(r"\s+:\s+", " : ", _VERILATOR_COMMON_PREFIX.sub("", line)) for line in report.splitlines()]
+    return "\n".join(lines) + "\n"
 
 
 def _verilator_uncovered_details(report: str, names: set[str]) -> str:
@@ -351,27 +349,34 @@ def _verilator_uncovered_details(report: str, names: set[str]) -> str:
         group = path.rsplit("::", 1)[-1].partition(".")[0]
         if group in names:
             lines.append(line)
-    return "\n".join(lines) + "\n"
+    return _shorten_verilator_report("\n".join(lines) + "\n")
 
 
 def _generate_verilator_report(dat: Path, report_prefix: Path) -> None:
     """Generate coverage reports from Verilator's native hierarchy report."""
     full_report, uncovered_report, summary_report = _report_paths(report_prefix)
     result = subprocess.run(
-        [_verilator_report_executable(), "--report", "hierarchy", "--filter-type", "covergroup", str(dat)],
+        ["verilator_coverage", "--report", "hierarchy", "--filter-type", "covergroup", str(dat)],
         check=True,
         capture_output=True,
         text=True,
     )
     report = result.stdout
     entries = _parse_verilator_report(report)
+    table = _format_table(entries)
 
-    summary_report.write_text(_format_table(entries))
-    full_report.write_text(report)
+    summary_report.write_text(table)
+    full_report.write_text(
+        f"Coverage Report by instance with details\n\n{table}\n"
+        f"Detailed group information (from verilator_coverage)\n{'=' * 89}\n{_shorten_verilator_report(report)}"
+    )
 
     uncovered = [entry for entry in entries if entry[4] != "Covered"]
     if uncovered:
         names = {entry[0] for entry in uncovered}
-        uncovered_report.write_text(_format_table(uncovered) + "\n" + _verilator_uncovered_details(report, names))
+        uncovered_report.write_text(
+            f"Coverage Report by instance with details\n\n{_format_table(uncovered)}\n"
+            f"Detailed uncovered group information\n{'=' * 89}\n{_verilator_uncovered_details(report, names)}"
+        )
     elif uncovered_report.exists():
         uncovered_report.unlink()
