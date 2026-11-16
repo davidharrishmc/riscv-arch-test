@@ -1,79 +1,107 @@
 ##################################
-# sail-to-rvvi.py
+# sail_to_rvvi.py
 #
 # jcarlin@hmc.edu 9 May 2025
 # SPDX-License-Identifier: Apache-2.0
 #
-# Convert a Sail log file into a trace format for use
-# with RVVI input to riscv-arch-test
+# Convert a Sail log file (--trace --trace-ptw) into an RVVI-TEXT trace for the
+# riscv-arch-test functional coverage testbench
 ##################################
 
 import re
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TextIO
+
+#                           [STEP]     [MODE]:              0xPC               (0xINSN)           DISASM
+INSN_PATTERN = re.compile(r"\[(\d+)\] \[(HS|VS|VU|M|S|U)\]: 0x([0-9a-fA-F]+) \(0x([0-9a-fA-F]+)\) (.*)")
+REG_PATTERN = re.compile(r"^([xfv])(\d+) <- 0x([0-9a-fA-F]+)")
+CSR_PATTERN = re.compile(r"^CSR \S+ \(0x([0-9a-fA-F]+)\) (<-|->) 0x([0-9a-fA-F]+)")
+MEM_PATTERN = re.compile(r"^mem\[([A-Za-z.]+),0x([0-9a-fA-F]+)\] (?:<-|->) 0x([0-9a-fA-F]+)")
+# Page-table walks: one "PTW: Step" per PTE read, ending in "PTW: Success" or "PTW: Failed"
+PTW_START_PATTERN = re.compile(r"PTW: Start, (?:stage=(\S+), level=\d+, )?vpn=0x([0-9a-fA-F]+), access_type=(\S+),")
+PTW_STEP_PATTERN = re.compile(
+    r"PTW: Step, (?:stage=(\S+), )?level=(\d+), pte=0x([0-9a-fA-F]+)(?:, pte_addr=0x([0-9a-fA-F]+))?"
+)
+PTW_END_PATTERN = re.compile(r"PTW: (?:Success|Failed|failed)(?:, .*final_ppn=0x([0-9a-fA-F]+))?")
+TRAP_PATTERN = re.compile(r"handling (exc|int)#(\S+) at priv \S+ \| tval=0x([0-9a-fA-F]+)")
+XRET_PATTERN = re.compile(r"ret-ing from \S+ to (\S+)")
+TLB_FLUSH_PATTERN = re.compile(r"(?:sfence|sinval|hfence|hinval)\.")
+SATP_PATTERN = re.compile(r"^CSR satp \(0x180\) (?:<-|->) 0x([0-9a-fA-F]+)")
+# Memory operand in the disassembly, such as "0x4(x9)" in "lw x13, 0x4(x9)" or "(x6)" in "amoadd.w x8, x14, (x6)"
+MEM_OPERAND_PATTERN = re.compile(r"(-?0x[0-9a-fA-F]+)?\(x(\d+)\)")
+
+MODE_CODE = {"M": 3, "S": 1, "HS": 1, "U": 0, "VS": 1, "VU": 0}
+PAGE_TYPE = "KMGTP"
+XEPC = (0x341, 0x141, 0x241)
+
+# sip and sie are restricted views of mip and mie through mideleg, and Sail logs only the view that was
+# accessed, so the delegated bits of a write to the S view are written back to mip/mie. With H, the VS-level
+# and SGEI bits of mip/mie live in hip/hie (and hvip drives the VS-level bits of mip), so those views are
+# mirrored the same way. Traps and xRETs log only mstatus, so its sstatus fields are mirrored into sstatus.
+# fflags and frm are fields of fcsr, so the three are kept consistent.
+SIP, MIP, SIE, MIE, MIDELEG = 0x144, 0x344, 0x104, 0x304, 0x303
+HIP, HIE, HVIP = 0x644, 0x604, 0x645
+MSTATUS, SSTATUS = 0x300, 0x100
+FFLAGS, FRM, FCSR = 0x001, 0x002, 0x003
+H_BITS, VS_BITS = 0x1444, 0x444
+# SD (bit 63, or 31 on RV32), UXL, SDT, SPELP, MXR, SUM, XS, FS, VS, SPP, UBE, SPIE, SIE
+SSTATUS_BITS = 0x8000_0003_818D_E762
+VIEW_OF = {SIP: MIP, SIE: MIE, HIP: MIP, HIE: MIE, HVIP: MIP, MSTATUS: SSTATUS}
+
+# In VS-mode and VU-mode, a CSR instruction that names one of these supervisor CSRs (sstatus, sie, stvec, sscratch,
+# sepc, scause, stval, sip, siselect, sireg*, stopei, stimecmp(h), satp, stopi) accesses the VS CSR 0x100 above it.
+# Sail logs the access under the name the instruction used, so record it under the register it changed. Sail
+# already logs trap entries under the VS names.
+S_CSRS = (0x100, 0x104, 0x105, *range(0x140, 0x145), *range(0x150, 0x158), 0x15C, 0x14D, 0x15D, 0x180, 0xDB0)
+VS_CSR_OF = {s_csr: s_csr + 0x100 for s_csr in S_CSRS}
+
+
+@dataclass
+class Event:
+    """One RVVI-TEXT event: a retired instruction or a trap."""
+
+    pc: int
+    insn: int
+    mode: str
+    regs: dict[tuple[str, int], str] = field(default_factory=dict)
+    csrs: dict[int, int] = field(default_factory=dict)
+    mems: list[str] = field(default_factory=list)
+    trap: bool = False
 
 
 def sailLog2Trace(inputLogFile: Path, outputTraceFile: Path) -> None:
-    # Regular expression to match instruction lines
-    #                             [STEP]     [MODE]:    0xPC              (0xINSN)           DISASM
-    insn_pattern = re.compile(r"\[(\d+)\] \[(HS|VS|VU|M|S|U)\]: 0x([0-9a-fA-F]+) \(0x([0-9a-fA-F]+)\) (.*)")
+    lines = inputLogFile.read_text().splitlines()
+    xlen = 64
+    for line in lines:
+        if m := INSN_PATTERN.search(line):
+            xlen = 4 * len(m.group(3))
+            break
+    hex_digits = xlen // 4
+    pte_bytes = xlen // 8
+    # Instruction at each PC, for a trap taken before the instruction executes (an interrupt or a trigger)
+    insn_at = {int(m.group(3), 16): int(m.group(4), 16) for line in lines if (m := INSN_PATTERN.search(line))}
+    # Page-table accesses: the read logged just before each PTW: Step and an A/D update just after it
+    walk_accesses: set[int] = set()
+    for i, line in enumerate(lines):
+        if (m := PTW_STEP_PATTERN.search(line)) and m.group(4):
+            for j in (i - 1, i + 1, i + 2):
+                if (
+                    0 <= j < len(lines)
+                    and (mem := MEM_PATTERN.search(lines[j]))
+                    and int(mem.group(2), 16) == int(m.group(4), 16)
+                ):
+                    walk_accesses.add(j)
 
-    # Regular expressions to match register updates
-    reg_patterns = {
-        "CSR": re.compile(r"CSR .* \(0x([0-9a-fA-F]+)\) (?:<-|->) 0x([0-9a-fA-F]+)"),
-        "X": re.compile(r"x(\d+) <- 0x([0-9a-fA-F]+)"),
-        "F": re.compile(r"f(\d+) <- 0x([0-9a-fA-F]+)"),
-        "V": re.compile(r"v(\d+) <- 0x([0-9a-fA-F]+)"),
-    }
-
-    # Page-table walks (Sail --trace-ptw): one "PTW: Step" per level, ending in "PTW: Success" or "PTW: Failed".
-    # The last step holds the PTE the walk stopped on. A data walk belongs to the instruction being logged;
-    # an instruction fetch walk (access_type X) is logged just before the instruction it fetches.
-    ptw_start_pattern = re.compile(r"PTW: Start, (?:stage=\S+, level=\d+, )?vpn=0x([0-9a-fA-F]+), access_type=(\S+),")
-    ptw_step_pattern = re.compile(r"PTW: Step, (?:stage=\S+, )?level=\d+, pte=0x([0-9a-fA-F]+)")
-    ptw_end_pattern = re.compile(r"PTW: (Success, (?:stage=\S+, level=\d+, )?final_ppn=0x([0-9a-fA-F]+)|[Ff]ailed)")
-    # Sail caches successful walks in its TLB, so a repeated access to a page logs no walk. The leaf PTE of
-    # each walk is kept until the next TLB flush so that TLB hits still report their PTE: by physical page
-    # for accesses that reach memory, and by virtual page for accesses that fault before reaching it.
-    # An access that spans pages reports the last page it touched.
-    mem_pattern = re.compile(r"mem\[([A-Za-z.]+),0x([0-9a-fA-F]+)\]")
-    tlb_flush_pattern = re.compile(r"(?:sfence|sinval|hfence|hinval)\.")
-    satp_pattern = re.compile(r"CSR satp \(0x180\) (?:<-|->) 0x([0-9a-fA-F]+)")
-
-    # Exceptions log "trapping from"; interrupts log "Handling interrupt" first. A fetch fault is logged in the
-    # record of the instruction before it, which did retire.
-    trap_pattern = re.compile(r"trapping from \S+ to \S+ to handle (\S+)")
-    exc_pattern = re.compile(r"handling exc#(?:load|store/amo)-(?:access|page)-fault .* tval=0x([0-9a-fA-F]+)")
-    interrupt_pattern = re.compile(r"Handling interrupt")
-    fetch_faults = ("fetch-access-fault", "fetch-page-fault", "fetch-guest-page-fault")
-    # Memory operand in the disassembly, such as "0x4(x9)" in "lw x13, 0x4(x9)" or "(x6)" in "amoadd.w x8, x14, (x6)"
-    mem_operand_pattern = re.compile(r"(-?0x[0-9a-fA-F]+)?\(x(\d+)\)")
-
-    # Mode mapping: privilege level and virtualization mode
-    mode_map = {"M": "3", "S": "1", "HS": "1", "U": "0", "VS": "1", "VU": "0"}
-    virt_map = {"VS": "1", "VU": "1"}
-
-    # sip and sie are restricted views of mip and mie through mideleg, and Sail logs only the view
-    # that was accessed. A csrrs to sip therefore leaves the mip the covergroups read unchanged, so
-    # an interrupt S-mode raised for itself is invisible to any coverpoint keyed on mip. Mirror the
-    # S view back into the M register: the delegated bits take the logged value and the rest keep
-    # what mip/mie already held. A read mirrors to the same value it already has, so it costs
-    # nothing and resynchronises after a write this converter did not see.
-    # With H, the VS-level and SGEI bits of mip/mie live in hip/hie instead (sip/sie read them as
-    # zero even though mideleg has them set), and hvip drives the VS-level bits of mip, so those
-    # are mirrored over the same way. In VS/VU, sip/sie are vsip/vsie and are not mirrored.
-    # The other way round, traps and xrets log only mstatus, so its sstatus fields are mirrored
-    # into sstatus to keep reads of sstatus current after a trap.
-    # fflags and frm are fields of fcsr. Sail logs only the name accessed, and a vector FP instruction
-    # logs fcsr, so all three are rewritten together to keep them consistent.
-    SIP, MIP, SIE, MIE, MIDELEG = 0x144, 0x344, 0x104, 0x304, 0x303
-    HIP, HIE, HVIP = 0x644, 0x604, 0x645
-    MSTATUS, SSTATUS = 0x300, 0x100
-    FFLAGS, FRM, FCSR = 0x001, 0x002, 0x003
-    H_BITS, VS_BITS = 0x1444, 0x444
-    # SD (bit 63, or 31 on RV32), UXL, SDT, SPELP, MXR, SUM, XS, FS, VS, SPP, UBE, SPIE, SIE
-    SSTATUS_BITS = 0x8000_0003_818D_E762
-    s_view_of = {SIP: MIP, SIE: MIE, HIP: MIP, HIE: MIE, HVIP: MIP, MSTATUS: SSTATUS}
     csr_state: dict[int, int] = {}
+    xregs = [0] * 32
+    tlb: dict[int, tuple[int, int]] = {}  # physical page -> (leaf PTE, level) of the walk that mapped it
+    tlb_va: dict[int, tuple[int, int]] = {}  # virtual page -> (leaf PTE, level), for faults before memory
+    translating = False
+
+    def mem_record(bus: str, size: int, va: int, pa: int, **kv: str) -> str:
+        pairs = " ".join(f"{k} {v}" for k, v in kv.items())
+        return f"MEM {bus} {size} 0x{va:x} 0x{pa:x} {len(kv)}" + (f" {pairs}" if pairs else "")
 
     def view_mask(csr_num: int) -> int:
         """Bits of the mirrored register that a write to ``csr_num`` reaches."""
@@ -85,166 +113,185 @@ def sailLog2Trace(inputLogFile: Path, outputTraceFile: Path) -> None:
             return SSTATUS_BITS
         return csr_state.get(MIDELEG, 0) & ~H_BITS
 
-    def fcsr_views(csr_num: int, csr_val: int) -> dict[int, int]:
-        """Values of fflags, frm, and fcsr after an access to ``csr_num``."""
-        fcsr = csr_state.get(FCSR, 0)
-        if csr_num == FFLAGS:
-            fcsr = (fcsr & ~0x1F) | (csr_val & 0x1F)
-        elif csr_num == FRM:
-            fcsr = (fcsr & ~0xE0) | ((csr_val & 0x7) << 5)
-        else:
-            fcsr = csr_val
-        return {FFLAGS: fcsr & 0x1F, FRM: (fcsr >> 5) & 0x7, FCSR: fcsr}
+    def write_csr(csrs: dict[int, int], csr_num: int, value: int, mode: str) -> None:
+        """Record a CSR write and every view of the same state that it changes."""
+        csrs[csr_num] = value
+        csr_state[csr_num] = value
+        if csr_num in (FFLAGS, FRM, FCSR):
+            fcsr = csr_state.get(FCSR, 0)
+            if csr_num == FFLAGS:
+                fcsr = (fcsr & ~0x1F) | (value & 0x1F)
+            elif csr_num == FRM:
+                fcsr = (fcsr & ~0xE0) | ((value & 0x7) << 5)
+            else:
+                fcsr = value
+            for view, view_val in ((FFLAGS, fcsr & 0x1F), (FRM, (fcsr >> 5) & 0x7), (FCSR, fcsr)):
+                csrs[view] = csr_state[view] = view_val
+        view = VIEW_OF.get(csr_num)
+        if view is not None and not (mode in ("VS", "VU") and csr_num in (SIP, SIE)):
+            mask = view_mask(csr_num)
+            csrs[view] = csr_state[view] = (csr_state.get(view, 0) & ~mask) | (value & mask)
 
-    # TODO: Add support for parsing traps, interrupts, and the remaining VM signals
+    def emit(out: TextIO, ev: Event) -> None:
+        width = 4 if ev.insn & 3 != 3 else 8
+        parts = [f"{'TRAP' if ev.trap else 'RET'} 0x{ev.pc:0{hex_digits}x} 0x{ev.insn:0{width}x}"]
+        parts += [f"{kind.upper()} {num} 0x{val}" for (kind, num), val in ev.regs.items()]
+        parts += [f"C 0x{num:03x} 0x{val:0{hex_digits}x}" for num, val in sorted(ev.csrs.items())]
+        parts += ev.mems
+        parts.append(f"MODE 0x{MODE_CODE[ev.mode]:x} VIRT 0x{int(ev.mode in ('VS', 'VU')):x}")
+        out.write(" ".join(parts) + "\n")
 
-    # Main parsing of log file
-    with inputLogFile.open() as f, outputTraceFile.open("w") as outfile:
-        lines = f.readlines()
-        output_line = ""
-        prev_mode_num: str | None = None
-        walk_access = ""
-        walk_pte: str | None = None
-        next_pte_i: str | None = None
-        next_fetch_ppn: int | None = None
-        tlb: dict[int, str | None] = {}
-        tlb_va: dict[int, str] = {}
-        walk_vpn = 0
-        translating = False
-        # Integer register values, tracked from the logged writes, to compute effective addresses
-        xregs = [0] * 32
-        prev_virt: str = "0"
-        for i in range(len(lines)):
-            line = lines[i]
+    with outputTraceFile.open("w") as out:
+        out.write(f"VERSION 0 5\nVENDOR sail 0 16\nPARAMS 3 ILEN 32 XLEN {xlen} NHART 1\n")
+        event: Event | None = None
+        mode = "M"  # mode after the last event
+        fetch_mems: list[str] = []  # walk and fetch records logged before the next instruction
+        fetch_pas: list[tuple[int, int]] = []  # (physical address, bytes) fetched for the next instruction
+        # Walk in progress: (vpn, access type, G-stage only). A G-stage walk of a VS-stage PTE address is logged
+        # inside the VS-stage walk, and Sail does not log the end of every walk, so each step is recorded as it
+        # is logged.
+        walk: tuple[int, str, bool] | None = None
+        leaf: tuple[int, int] | None = None  # (PTE, level) of the last VS-stage or single-stage step
+        fault_fetch_mems: list[str] = []  # walk records of a fetch that faulted
+        walked_pages: set[int] = set()  # virtual pages with a PTE record in the current event
+        trap: tuple[str, str, int] | None = None  # (exc or int, cause, tval) of a trap logged after the event
+        trap_csrs: dict[int, int] = {}
+        vs_csr_access = False
+        data_va: int | None = None
 
-            # Check for instruction line
-            insn_match = insn_pattern.search(line)
-            if insn_match:
-                order, prev_mode, pc, insn, disasm = insn_match.groups()
-                prev_mode_num = mode_map.get(prev_mode)
-                prev_virt = virt_map.get(prev_mode, "0")
-                translated = translating and prev_mode != "M"
+        def finish() -> None:
+            """Write the event in progress, and the trap logged after it as its own event if it belongs to another
+            instruction: an interrupt, a fetch fault or a trigger, whose xepc is not this instruction."""
+            nonlocal event, trap, trap_csrs, mode
+            epc = next((trap_csrs[c] for c in XEPC if c in trap_csrs), None)
+            separate = trap is not None and (event is None or trap[0] == "int" or epc != event.pc)
+            if event is not None:
+                if trap is not None and not separate:
+                    event.trap = True
+                    event.csrs.update(trap_csrs)
+                emit(out, event)
+            if separate and trap is not None:
+                _, cause, tval = trap
+                fetch_fault = cause.startswith("fetch-")
+                pc = epc if epc is not None else 0
+                trap_event = Event(pc, 0 if fetch_fault else insn_at.get(pc, 0), mode, csrs=dict(trap_csrs), trap=True)
+                if fetch_fault:
+                    trap_event.mems = [*fault_fetch_mems, mem_record("I", 0, tval, 0, FAULTED="1")]
+                emit(out, trap_event)
+            fault_fetch_mems.clear()
+            event, trap, trap_csrs = None, None, {}
 
-                # Format the beginning of the instruction line
-                # mode_num is set later based on the mode for the next instruction because RVVI expects the
-                # mode at the end of the instruction but Sail logs have the mode at the start of the instruction.
-                next_output = f"ORDER {order} PC {pc} INSN {insn} MODE " + "{mode_num} MODE_VIRT {mode_virt}"
-                pte_i, next_pte_i = next_pte_i, None
-                if pte_i is None and translated and next_fetch_ppn is not None:
-                    pte_i = tlb.get(next_fetch_ppn)
-                next_fetch_ppn = None
-                pte_d: str | None = None
-                trap = False
-                interrupt = False
-                if tlb_flush_pattern.match(disasm):
+        for line_num, line in enumerate(lines):
+            if line_num in walk_accesses:
+                continue
+            if insn_match := INSN_PATTERN.search(line):
+                walk = None  # a walk ends before the next instruction is logged
+                finish()
+                _, ev_mode, pc_str, insn_str, disasm = insn_match.groups()
+                pc, insn = int(pc_str, 16), int(insn_str, 16)
+                event = Event(pc, insn, ev_mode)
+                mode = ev_mode
+                translated = translating and ev_mode != "M"
+                event.mems = list(fetch_mems)
+                fetch_mems.clear()
+                walked_pages.clear()
+                walked_pages.update(int(r.split()[3], 16) >> 12 for r in event.mems if " PTE " in r)
+                for i, (pa, size) in enumerate(fetch_pas):
+                    va = pc + 2 * i if size == 2 else pc
+                    if translated and va >> 12 not in walked_pages and pa >> 12 in tlb:
+                        pte, level = tlb[pa >> 12]
+                        event.mems.append(mem_record("D", pte_bytes, va, 0, PTE=f"0x{pte:x}", PT=PAGE_TYPE[level]))
+                    event.mems.append(mem_record("I", size, va, pa))
+                fetch_pas.clear()
+                if TLB_FLUSH_PATTERN.match(disasm):
                     tlb.clear()
                     tlb_va.clear()
-
-                # VIRT_ADR_I is the PC. VIRT_ADR_D is the effective address of a scalar load, store, AMO, or CMO,
-                # whether or not the access faults. jalr names a jump target, prefetch does not access memory, and
-                # a vector access has an address per element, so they get no VIRT_ADR_D.
-                # Sail prints the PC with XLEN/4 hex digits.
-                next_output += f" VIRT_ADR_I {pc}"
+                vs_csr_access = ev_mode in ("VS", "VU") and disasm.startswith("csrr")
+                data_va = None
                 mnemonic = disasm.partition(" ")[0]
-                mem_match = mem_operand_pattern.search(disasm)
+                mem_match = MEM_OPERAND_PATTERN.search(disasm)
                 if mem_match and mnemonic != "jalr" and not mnemonic.startswith(("prefetch.", "v")):
                     offset, base = mem_match.groups()
-                    vaddr = (xregs[int(base)] + int(offset or "0", 16)) & ((1 << (4 * len(pc))) - 1)
-                    next_output += f" VIRT_ADR_D {vaddr:0{len(pc)}X}"
+                    data_va = (xregs[int(base)] + int(offset or "0", 16)) & ((1 << xlen) - 1)
+                continue
 
-                # Check for register updates until the next instruction line.  Sail logs every
-                # element a vector instruction writes as a separate whole-register update, so a
-                # vector load can log a register a thousand times; only the final value of each
-                # register matters, so keep the last write per register in first-write order.
-                reg_writes: dict[tuple[str, str], str] = {}
-                j = i + 1
-                while j < len(lines):
-                    for reg, pattern in reg_patterns.items():
-                        reg_match = pattern.search(lines[j])
-                        if reg_match:
-                            reg_num, reg_val = reg_match.groups()
-                            reg_writes[(reg, reg_num)] = reg_val
-                            if reg == "CSR":
-                                csr_num, csr_val = int(reg_num, 16), int(reg_val, 16)
-                                csr_state[csr_num] = csr_val
-                                if csr_num in (FFLAGS, FRM, FCSR):
-                                    for view_num, view_val in fcsr_views(csr_num, csr_val).items():
-                                        csr_state[view_num] = view_val
-                                        reg_writes[("CSR", f"{view_num:03x}")] = f"{view_val:016x}"
-                                m_num = s_view_of.get(csr_num)
-                                if m_num is not None and not (prev_mode in ("VS", "VU") and csr_num in (SIP, SIE)):
-                                    mask = view_mask(csr_num)
-                                    m_val = (csr_state.get(m_num, 0) & ~mask) | (csr_val & mask)
-                                    csr_state[m_num] = m_val
-                                    reg_writes[("CSR", f"{m_num:x}")] = f"{m_val:016x}"
-                            break
-                    if insn_pattern.search(lines[j]):
-                        break
-                    if ptw_start := ptw_start_pattern.search(lines[j]):
-                        walk_vpn = int(ptw_start.group(1), 16)
-                        walk_access = ptw_start.group(2)
-                        walk_pte = walk_pte or ""
-                    elif ptw_step := ptw_step_pattern.search(lines[j]):
-                        walk_pte = ptw_step.group(1)
-                    elif (ptw_end := ptw_end_pattern.search(lines[j])) and walk_pte is not None:
-                        if walk_pte:
-                            if walk_access.startswith("X"):
-                                next_pte_i = walk_pte
-                            else:
-                                pte_d = walk_pte
-                            if ptw_end.group(2):
-                                ppn = int(ptw_end.group(2), 16)
-                                # A page reached through two different PTEs cannot be attributed on a TLB hit
-                                tlb[ppn] = walk_pte if tlb.get(ppn, walk_pte) == walk_pte else None
-                                tlb_va[walk_vpn] = walk_pte
-                            else:
-                                tlb_va.pop(walk_vpn, None)
-                        walk_pte = None
-                    elif walk_pte is not None:
-                        pass
-                    elif mem := mem_pattern.search(lines[j]):
-                        ppn = int(mem.group(2), 16) >> 12
-                        if mem.group(1) == "X":
-                            next_fetch_ppn = ppn
-                        elif translated and tlb.get(ppn) is not None:
-                            pte_d = tlb[ppn]
-                    elif trap_match := trap_pattern.search(lines[j]):
-                        trap = trap or not (interrupt or trap_match.group(1) in fetch_faults)
-                        next_pte_i = None
-                        next_fetch_ppn = None
-                    elif exc := exc_pattern.search(lines[j]):
-                        vpn = int(exc.group(1), 16) >> 12
-                        if translated and vpn in tlb_va:
-                            pte_d = tlb_va[vpn]
-                    elif interrupt_pattern.search(lines[j]):
-                        interrupt = True
-                    else:
-                        if satp := satp_pattern.search(lines[j]):
-                            satp_val = satp.group(1)
-                            translating = int(satp_val, 16) >> (60 if len(satp_val) > 8 else 31) != 0
-                    j += 1
-                for (reg_type, reg_num), reg_val in reg_writes.items():
-                    next_output += f" {reg_type} {reg_num} {reg_val}"
-                    if reg_type == "X":
-                        xregs[int(reg_num)] = int(reg_val, 16)
-                if trap:
-                    next_output += " TRAP 1"
-                if pte_i is not None:
-                    next_output += f" PTE_I {pte_i}"
-                if pte_d is not None:
-                    next_output += f" PTE_D {pte_d}"
+            if m := PTW_START_PATTERN.search(line):
+                g_stage = (m.group(1) or "").startswith("G")
+                if not g_stage or walk is None:
+                    walk = (int(m.group(2), 16), m.group(3), g_stage)
+                    leaf = None
+                continue
+            if (m := PTW_STEP_PATTERN.search(line)) and walk is not None:
+                vpn, access, _ = walk
+                fetch_walk = "X" in access
+                target = fetch_mems if fetch_walk or event is None else event.mems
+                va = vpn << 12 if fetch_walk or data_va is None else data_va
+                level, pte, pte_addr = int(m.group(2)), int(m.group(3), 16), int(m.group(4) or "0", 16)
+                if (m.group(1) or "").startswith("G"):
+                    target.append(mem_record("D", pte_bytes, va, pte_addr, GPTE=f"0x{pte:x}", GPT=PAGE_TYPE[level]))
+                else:
+                    target.append(mem_record("D", pte_bytes, va, pte_addr, PTE=f"0x{pte:x}", PT=PAGE_TYPE[level]))
+                    leaf = (pte, level)
+                    if not fetch_walk:
+                        walked_pages.add(va >> 12)
+                continue
+            if (m := PTW_END_PATTERN.search(line)) and walk is not None:
+                # Sail does not log the end of every walk; the leaf of a successful walk feeds the TLB model
+                if "Success" in line and leaf is not None and not line.startswith("PTW: Success, stage=G"):
+                    if m.group(1):
+                        tlb[int(m.group(1), 16)] = leaf
+                    tlb_va[walk[0]] = leaf
+                continue
 
-                # Reached end of instruction
-                next_output += "\n"
+            if m := MEM_PATTERN.search(line):
+                kind, pa, val = m.group(1), int(m.group(2), 16), m.group(3)
+                size = len(val) // 2
+                if kind == "X":
+                    fetch_pas.append((pa, size))
+                elif event is not None:
+                    va = data_va if data_va is not None else pa
+                    if translating and event.mode != "M" and va >> 12 not in walked_pages and pa >> 12 in tlb:
+                        pte, level = tlb[pa >> 12]
+                        event.mems.append(mem_record("D", pte_bytes, va, 0, PTE=f"0x{pte:x}", PT=PAGE_TYPE[level]))
+                        walked_pages.add(va >> 12)
+                    event.mems.append(mem_record("D", size, va, pa))
+                continue
 
-                # Update the previous instruction with the new privilege mode and output it to the trace file
-                output_line = output_line.format(mode_num=prev_mode_num, mode_virt=prev_virt)
-                outfile.write(output_line)
-                output_line = next_output
+            if m := TRAP_PATTERN.search(line):
+                kind, cause, tval = m.group(1), m.group(2), int(m.group(3), 16)
+                trap = (kind, cause, tval)
+                walk = None
+                # Fetches logged before the trap belong to the instruction that did not execute
+                fault_fetch_mems[:] = fetch_mems
+                fetch_mems.clear()
+                fetch_pas.clear()
+                memory_fault = kind == "exc" and any(k in cause for k in ("access-fault", "page-fault", "misaligned"))
+                if memory_fault and not cause.startswith("fetch-") and event is not None:
+                    if tval >> 12 not in walked_pages and tval >> 12 in tlb_va and event.mode != "M":
+                        pte, level = tlb_va[tval >> 12]
+                        event.mems.append(mem_record("D", pte_bytes, tval, 0, PTE=f"0x{pte:x}", PT=PAGE_TYPE[level]))
+                    event.mems.append(mem_record("D", 0, tval, 0, FAULTED="1"))
+                continue
+            if m := XRET_PATTERN.search(line):
+                mode = m.group(1)
+                continue
 
-        # Flush the final instruction. Sail logs mode at the start of an
-        # instruction, so the trailing instruction has no "next" mode to
-        # inherit from; fall back to its own start mode as the closest
-        # approximation rather than dropping it from the trace.
-        if output_line and prev_mode_num is not None:
-            outfile.write(output_line.format(mode_num=prev_mode_num, mode_virt=prev_virt))
+            if m := CSR_PATTERN.search(line):
+                csr_num, direction, value = int(m.group(1), 16), m.group(2), int(m.group(3), 16)
+                if satp := SATP_PATTERN.search(line):
+                    translating = int(satp.group(1), 16) >> (60 if xlen == 64 else 31) != 0
+                if trap is not None:
+                    write_csr(trap_csrs, csr_num, value, mode)
+                elif event is not None:
+                    if vs_csr_access and csr_num in VS_CSR_OF:
+                        csr_num = VS_CSR_OF[csr_num]
+                    # A read is a change only if the value differs from what the trace last showed
+                    if direction == "<-" or csr_state.get(csr_num) != value:
+                        write_csr(event.csrs, csr_num, value, event.mode)
+                continue
+            if (m := REG_PATTERN.search(line)) and event is not None:
+                kind, num, value = m.group(1), int(m.group(2)), m.group(3)
+                event.regs[(kind, num)] = value
+                if kind == "x":
+                    xregs[num] = int(value, 16)
+        finish()
