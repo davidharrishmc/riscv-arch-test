@@ -145,11 +145,14 @@ function void save_rvvi_data(bit trap, int hart, int issue, string disass);
   traceDataQ[hart][issue].push_front(rvviData);
 endfunction
 
-// Fill the virtual memory fields from the MEM records of this event. Page table reads are D records
-// without a PTE, so the data access is the first D record with a PTE, else the last D record.
+// Fill the virtual memory fields from the MEM records of this event. The fetch is the last I record and the data
+// access the last D record. Page-table reads are D records that carry the PTE they read (PTE, or GPTE for the G
+// stage), and come before the access they translate; an access that carries no PTE takes the last PTE read for
+// its virtual page, which is the leaf (or, for a fault, the PTE the walk stopped on).
 function void save_mem_data(riscvTraceData #(ILEN, XLEN, FLEN, VLEN) rvviData, int hart, string disass,
                             logic [31:0][(XLEN-1):0] xregs);
   rvvi_mem_access_t acc, i_acc, d_acc;
+  rvvi_mem_access_t pte_reads[$];
   bit have_i = 0, have_d = 0;
   string mnemonic;
   bit is_load, is_store;
@@ -157,11 +160,14 @@ function void save_mem_data(riscvTraceData #(ILEN, XLEN, FLEN, VLEN) rvviData, i
     if (acc.fetch) begin
       i_acc = acc;
       have_i = 1;
-    end else if (!(have_d && d_acc.pte != 0)) begin
+    end else begin
       d_acc = acc;
       have_d = 1;
+      if (acc.pte != 0 || acc.gpte != 0) pte_reads.push_back(acc);
     end
   end
+  if (have_i) i_acc = with_walk_pte(i_acc, pte_reads);
+  if (have_d) d_acc = with_walk_pte(d_acc, pte_reads);
   void'($sscanf(disass, "%s %s", mnemonic, mnemonic));
   is_load = mnemonic inside {"lb", "lbu", "lh", "lhu", "lw", "lwu", "ld", "flh", "flw", "fld", "flq",
                              "c.lbu", "c.lh", "c.lhu", "c.lw", "c.ld", "c.lwsp", "c.ldsp",
@@ -196,6 +202,25 @@ function void save_mem_data(riscvTraceData #(ILEN, XLEN, FLEN, VLEN) rvviData, i
     rvviData.ppn_i = i_acc.pte[53:10];
     rvviData.ppn_d = d_acc.pte[53:10];
   `endif
+endfunction
+
+// acc with the PTE and G-stage PTE it lacks taken from the last page-table read for its virtual page
+function rvvi_mem_access_t with_walk_pte(rvvi_mem_access_t acc, rvvi_mem_access_t pte_reads[$]);
+  bit need_pte = (acc.pte == 0), need_gpte = (acc.gpte == 0);
+  for (int i = pte_reads.size() - 1; i >= 0 && (need_pte || need_gpte); i--) begin
+    if ((pte_reads[i].vaddr >> 12) != (acc.vaddr >> 12)) continue;
+    if (need_pte && pte_reads[i].pte != 0) begin
+      acc.pte = pte_reads[i].pte;
+      acc.page_type = pte_reads[i].page_type;
+      need_pte = 0;
+    end
+    if (need_gpte && pte_reads[i].gpte != 0) begin
+      acc.gpte = pte_reads[i].gpte;
+      acc.guest_page_type = pte_reads[i].guest_page_type;
+      need_gpte = 0;
+    end
+  end
+  return acc;
 endfunction
 
 function bit has_prefix(string str, string prefix);
