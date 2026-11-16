@@ -13,6 +13,7 @@
 // Replays RVVI-TEXT trace files onto the RVVI-Trace interface.
 // Each unescaped line of a trace file is one clock step.
 module testbench;
+  import RISCV_coverage_pkg::rvvi_mem_access_t;
 
   // Load configuration
   `include "rvtest_config.svh"
@@ -41,6 +42,7 @@ module testbench;
 
   // RVVI-TEXT parser state
   string             tokens[$];
+  string             token;  // popped before $sscanf, which Questa may evaluate its string argument more than once
   string             key;
   int                hart, issue, count;
   logic [63:0]       orderCount;
@@ -133,8 +135,10 @@ module testbench;
         "ORDER": orderCount = popInt();
         "RET", "TRAP": begin
           if (valid) $fatal(1, "Error: more than one retirement in one event in %s", traceFile);
-          num = $sscanf(tokens.pop_front(), "0x%h", pc_rdata);
-          num = $sscanf(tokens.pop_front(), "0x%h", insn);
+          token = tokens.pop_front();
+          num = $sscanf(token, "0x%h", pc_rdata);
+          token = tokens.pop_front();
+          num = $sscanf(token, "0x%h", insn);
           trap = (key == "TRAP");
           valid = 1;
           order = orderCount;
@@ -142,36 +146,42 @@ module testbench;
         end
         "X": begin
           regNum = popInt();
-          num = $sscanf(tokens.pop_front(), "0x%h", xRegVal);
+          token = tokens.pop_front();
+          num = $sscanf(token, "0x%h", xRegVal);
           x_wdata[regNum] = xRegVal;
           x_wb[regNum] = 1'b1;
         end
         "F": begin
           regNum = popInt();
-          num = $sscanf(tokens.pop_front(), "0x%h", fRegVal);
+          token = tokens.pop_front();
+          num = $sscanf(token, "0x%h", fRegVal);
           f_wdata[regNum] = fRegVal;
           f_wb[regNum] = 1'b1;
         end
         "V": begin
           regNum = popInt();
-          num = $sscanf(tokens.pop_front(), "0x%h", vRegVal);
+          token = tokens.pop_front();
+          num = $sscanf(token, "0x%h", vRegVal);
           v_wdata[regNum] = vRegVal;
           v_wb[regNum] = 1'b1;
         end
         "C": begin
-          num = $sscanf(tokens.pop_front(), "0x%h", regNum);
-          num = $sscanf(tokens.pop_front(), "0x%h", xRegVal);
+          token = tokens.pop_front();
+          num = $sscanf(token, "0x%h", regNum);
+          token = tokens.pop_front();
+          num = $sscanf(token, "0x%h", xRegVal);
           csr[regNum] = xRegVal;
           csr_wb[regNum] = 1'b1;
         end
-        "MODE":  num = $sscanf(tokens.pop_front(), "0x%h", mode);
-        "VIRT":  num = $sscanf(tokens.pop_front(), "0x%h", mode_virt);
-        "DM":    num = $sscanf(tokens.pop_front(), "0x%h", debug_mode);
+        "MODE":  begin token = tokens.pop_front(); num = $sscanf(token, "0x%h", mode); end
+        "VIRT":  begin token = tokens.pop_front(); num = $sscanf(token, "0x%h", mode_virt); end
+        "DM":    begin token = tokens.pop_front(); num = $sscanf(token, "0x%h", debug_mode); end
         "META":  void'(popN(popInt()));
         "CYCLE", "TIME": void'(popN(1));
         "NET": begin
           key = tokens.pop_front();
-          num = $sscanf(tokens.pop_front(), "0x%h", netVal);
+          token = tokens.pop_front();
+          num = $sscanf(token, "0x%h", netVal);
           rvvi.net_push(key, netVal);
         end
         "CANCEL": rvvi.net_cancel_push(tokens.pop_front());
@@ -227,7 +237,8 @@ module testbench;
 
   function automatic int popInt();
     int val;
-    void'($sscanf(tokens.pop_front(), "%d", val));
+    token = tokens.pop_front();
+    void'($sscanf(token, "%d", val));
     return val;
   endfunction
 
@@ -245,9 +256,11 @@ module testbench;
     bus = tokens.pop_front();
     memAccess.fetch = (bus == "I");
     memAccess.size = popInt();
-    void'($sscanf(tokens.pop_front(), "0x%h", val));
+    token = tokens.pop_front();
+    void'($sscanf(token, "0x%h", val));
     memAccess.vaddr = val;
-    void'($sscanf(tokens.pop_front(), "0x%h", val));
+    token = tokens.pop_front();
+    void'($sscanf(token, "0x%h", val));
     memAccess.paddr = val;
     pairs = popInt();
     repeat (pairs) begin

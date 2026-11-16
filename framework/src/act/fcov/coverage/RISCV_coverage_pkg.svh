@@ -20,6 +20,9 @@
 //
 
 package RISCV_coverage_pkg;
+  // rvviTrace.sv declares rvvi_mem_access_t in its compilation unit, which a package cannot refer to
+  `undef _RVVI_TRACE_TYPES__
+  `include "rvviTraceTypes.svh"
   import RISCV_decode_pkg::*;
   `include "coverage/RISCV_coverage_common.svh"
   `include "coverage/RISCV_trace_data.svh"
