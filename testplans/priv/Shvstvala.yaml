@@ -22,7 +22,7 @@ coverpoints:
     goal: Fault writes VA to vstval
     description: In VS-mode and VU-mode under two-stage translation, fetch from a VS-stage page without X
     expectation: vstval written with VA
-    bins: "{VS, VU} x jalr x instruction page fault x vstval = target"
+    bins: "{VS, VU} x fetch x instruction page fault x vstval = fetch address"
   - name: cp_load_access_fault
     goal: Fault writes VA to vstval
     description: In VS-mode and VU-mode, each load (lb, lbu, lh, lhu, lw, and lwu, ld on RV64) from RVMODEL_ACCESS_FAULT_ADDRESS_LOAD
@@ -37,7 +37,7 @@ coverpoints:
     goal: Fault writes VA to vstval
     description: In VS-mode and VU-mode, jalr to RVMODEL_ACCESS_FAULT_ADDRESS_FETCH
     expectation: vstval written with VA
-    bins: "{VS, VU} x jalr x instruction access fault x vstval = target"
+    bins: "{VS, VU} x fetch x instruction access fault x vstval = fetch address"
   - name: cp_load_address_misaligned
     goal: Fault writes VA to vstval
     description: Only without MISALIGNED_LDST.  In VS-mode and VU-mode, each load wider than a byte at offsets 0-7 of a scratch doubleword

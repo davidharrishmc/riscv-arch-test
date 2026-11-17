@@ -33,15 +33,19 @@ coverpoints:
   - heading: Guest traps taken in M-mode (Sv_HSm_trap_cg)
   - name: |-
       cp_guest_page_fault_m
+      cp_guest_page_fault_m_fetch
       cp_implicit_gpf_m
+      cp_implicit_gpf_m_fetch
     goal: Page faults and guest-page faults from VS-mode and VU-mode taken in M-mode write mtval2, mtinst and mstatus.GVA/MPV
     description: In VS-mode and VU-mode with nothing delegated, store, load and fetch through an invalid VS-stage leaf, an invalid G-stage leaf, and a VS-stage leaf table whose G-stage leaf is invalid.
     expectation: |-
       Each trap is taken in M-mode with mstatus.GVA = 1, mstatus.MPV = 1 (mstatush on RV32) and mtval = the guest virtual address.
       The invalid VS-stage leaf raises a page fault (12, 13, 15) with mtval2 = 0.  The invalid G-stage leaf raises a guest-page fault (20, 21, 23) with mtval2 = the guest physical address >> 2 (or zero).  The leaf table raises a guest-page fault on the implicit VS-stage PTE read, with mtval2 = the guest physical address of the PTE >> 2 and, if mtval2 is nonzero, mtinst = the pseudoinstruction 0x3000 (RV64) or 0x2000 (RV32), reported for the original access type.
     bins: |-
-      cp_guest_page_fault_m: {VS, VU} x {sw, lw, jalr} x vsatp paged x hgatp paged x {page fault, guest-page fault} x mstatus.GVA = MPV = 1
-      cp_implicit_gpf_m: {VS, VU} x {sw, lw, jalr} x vsatp paged x hgatp paged x mtinst read pseudoinstruction
+      cp_guest_page_fault_m: {VS, VU} x {sw, lw} x vsatp paged x hgatp paged x {page fault, guest-page fault} x mstatus.GVA = MPV = 1
+      cp_guest_page_fault_m_fetch: {VS, VU} x fetch x vsatp paged x hgatp paged x {instruction page fault, instruction guest-page fault} x mstatus.GVA = MPV = 1
+      cp_implicit_gpf_m: {VS, VU} x {sw, lw} x vsatp paged x hgatp paged x mtinst read pseudoinstruction
+      cp_implicit_gpf_m_fetch: {VS, VU} x fetch x vsatp paged x hgatp paged x instruction guest-page fault x mtinst read pseudoinstruction
   - name: |-
       cp_straddle_m
       cp_ldst_straddle_m
@@ -51,5 +55,5 @@ coverpoints:
       cp_ldst_straddle_m needs a hart that performs misaligned accesses byte by byte: in VS-mode and VU-mode, store and load the word two bytes below the end of such a page.
     expectation: An instruction, store/AMO or load guest-page fault taken in M-mode, with mtval = the page-boundary address (the faulting portion) and mtval2 = its guest physical address >> 2, or zero.  A faulting load leaves rd unchanged.
     bins: |-
-      cp_straddle_m: {VS, VU} x jalr x vsatp paged x hgatp paged x target offset 0xFFE x guest-page fault x nonzero mtval2 at the page boundary
+      cp_straddle_m: {VS, VU} x fetch x vsatp paged x hgatp paged x fetch address offset 0xFFE x instruction guest-page fault x nonzero mtval2 at the page boundary
       cp_ldst_straddle_m: {VS, VU} x {lw, sw} x vsatp paged x hgatp paged x address offset 0xFFE x guest-page fault x nonzero mtval2 at the page boundary

@@ -602,6 +602,8 @@ Write SystemVerilog coverpoints. Complex coverpoints are normally a cross-produc
 
 The coverpoints use architectural state read from RVVI-TEXT traces (see the Certification Test Plan for the available fields). It is easiest to write coverpoints in terms of `ins.current` and `ins.prev`, the current and previous instructions. If the test is too complicated to express just in terms of these, it may be necessary to leave out some conditions. For example, virtual memory coverpoints don't specify all of the page table entries.
 
+An exception is reported on the event of the instruction that raised it. A trap taken before an instruction executes is an event of its own, a `TRAP` at the PC of the instruction it replaces (xepc), after the previous instruction retired: an interrupt, a fetch fault, or a breakpoint from an execute, icount or load data trigger. A coverpoint about such a trap samples that event, with `ins.prev` for the instruction that led to it (for example the `jalr` to a page whose fetch faults, or the load whose data a trigger matched). Crosses that combine loads and stores with fetches across trap outcomes have a separate `_fetch` cross over `execute_access` and the instruction-fetch causes.
+
 As with unprivileged tests, add a YAML file with the [Normative Rule - Coverpoint Mapping](#normative-rule---coverpoint-mapping).
 
 #### Standard Coverpoints

@@ -524,12 +524,13 @@ covergroup Zicfiss_U_cg with function sample(ins_t ins);
         access_origin: coverpoint ins.current.rs1_val[12] {}
     `endif
 
-    // A jump to the shadow stack page: the fetch there must raise an instruction access fault
-    // (implicit accesses to an SS page are not permitted), not an instruction page fault.
-    jalr_instr: coverpoint ins.current.insn {
-        wildcard bins jalr = {JALR};
+    // A fetch from the shadow stack page must raise an instruction access fault (implicit accesses to an SS page are
+    // not permitted), not an instruction page fault.  The fault is a trap at the address that could not be fetched,
+    // after the jump that led there.
+    exec_acc: coverpoint ins.current.execute_access {
+        bins set = {1};
     }
-    jalr_target_ss_page: coverpoint (ins.current.eff_addr & ~1) {
+    fetch_ss_page: coverpoint ins.current.pc_rdata {
         `ifdef UDB_MXLEN_64
             bins ss_page = {[64'h140300000:64'h140300FFF]};
         `else
@@ -613,7 +614,7 @@ covergroup Zicfiss_U_cg with function sample(ins_t ins);
     `ifdef ZACAS_SUPPORTED
         cp_ss_page_access_amocas:  cross priv_mode_u, amocas_ops, pte_ss_page;
     `endif
-    cp_ss_page_fetch:              cross priv_mode_u, jalr_instr, jalr_target_ss_page, scause_fetch_access;
+    cp_ss_page_fetch:              cross priv_mode_u, exec_acc, fetch_ss_page, scause_fetch_access;
     `ifdef ZVE32X_SUPPORTED
         // A shadow stack page is readable by anything that only loads, and writable only by
         // SSPUSH, C.SSPUSH and SSAMOSWAP, so vector loads succeed and vector stores fault,

@@ -386,6 +386,7 @@ normative_rule_definitions:
       [
         "Sv_vm_permissions_cg/cp_canonical_{read,write,exec}_s",
         "Sv_H_twostage_cg/cp_twostage_canonical",
+        "Sv_H_twostage_cg/cp_twostage_canonical_fetch",
       ]
 
   # Any level of PTE may be a leaf PTE
@@ -489,6 +490,7 @@ normative_rule_definitions:
       [
         "Sv_vm_permissions_cg/cp_canonical_{read,write,exec}_s",
         "Sv_H_twostage_cg/cp_twostage_canonical",
+        "Sv_H_twostage_cg/cp_twostage_canonical_fetch",
       ]
 
   # Any level of PTE may be a leaf PTE
@@ -563,6 +565,7 @@ normative_rule_definitions:
       [
         "Sv_vm_permissions_cg/cp_canonical_{read,write,exec}_s",
         "Sv_H_twostage_cg/cp_twostage_canonical",
+        "Sv_H_twostage_cg/cp_twostage_canonical_fetch",
       ]
 
   # Any level of PTE may be a leaf PTE
@@ -820,8 +823,11 @@ normative_rule_definitions:
     coverpoint:
       [
         "Sv_H_vsstage_cg/cp_vsatp_perm",
+        "Sv_H_vsstage_cg/cp_vsatp_perm_fetch",
         "Sv_H_gstage_cg/cp_hgatp_perm",
+        "Sv_H_gstage_cg/cp_hgatp_perm_fetch",
         "Sv_H_twostage_cg/cp_twostage_perm",
+        "Sv_H_twostage_cg/cp_twostage_perm_fetch",
         "Sv_H_twostage_cg/cp_stage_both_bare",
         "Sv_HZicbo_cg/{cp_vs_pte,cp_vs_gpa,cp_g_pte}",
       ]
@@ -838,8 +844,11 @@ normative_rule_definitions:
     coverpoint:
       [
         "Sv_H_gstage_cg/cp_hgatp_perm",
+        "Sv_H_gstage_cg/cp_hgatp_perm_fetch",
         "Sv_H_twostage_cg/cp_twostage_perm",
+        "Sv_H_twostage_cg/cp_twostage_perm_fetch",
         "Sv_H_twostage_cg/cp_implicit_gpf",
+        "Sv_H_twostage_cg/cp_implicit_gpf_fetch",
         "Sv_H_twostage_cg/cp_implicit_mxr",
         "Sv_H_twostage_cg/cp_twostage_access_fault_{load, store, fetch}",
         "Sv_H_hlv_cg/cp_hlv_implicit",
@@ -854,6 +863,7 @@ normative_rule_definitions:
         "Sv_H_gstage_cg/cp_hgatp_gpa_width",
         "Sv_H_twostage_cg/cp_hgatp_sv32x4_gpa",
         "Sv_H_twostage_cg/cp_twostage_gpa_width",
+        "Sv_H_twostage_cg/cp_twostage_gpa_width_fetch",
       ]
 
   # Each G-stage mode walks its tables with the Sv algorithm for permissions, every leaf level and A/D bits, and
@@ -862,10 +872,13 @@ normative_rule_definitions:
     coverpoint:
       [
         "Sv_H_gstage_cg/cp_hgatp_perm",
+        "Sv_H_gstage_cg/cp_hgatp_perm_fetch",
         "Sv_H_gstage_cg/cp_hgatp_svade",
         "Sv_H_twostage_cg/cp_twostage_perm",
+        "Sv_H_twostage_cg/cp_twostage_perm_fetch",
         "Sv_H_gstage_cg/cp_hgatp_gpa_width",
         "Sv_H_twostage_cg/cp_twostage_gpa_width",
+        "Sv_H_twostage_cg/cp_twostage_gpa_width_fetch",
       ]
 
   - name: hgatp_mode_sv32x4
@@ -888,9 +901,12 @@ normative_rule_definitions:
     coverpoint:
       [
         "Sv_H_twostage_cg/cp_implicit_gpf",
-        "Svadu_H_cg/{cp_implicit_gpf,cp_hlv_implicit}",
+        "Sv_H_twostage_cg/cp_implicit_gpf_fetch",
+        "Svadu_H_cg/{cp_implicit_gpf,cp_implicit_gpf_fetch,cp_hlv_implicit}",
         "Sv_HSm_trap_cg/cp_guest_page_fault_m",
+        "Sv_HSm_trap_cg/cp_guest_page_fault_m_fetch",
         "Sv_HSm_trap_cg/cp_implicit_gpf_m",
+        "Sv_HSm_trap_cg/cp_implicit_gpf_m_fetch",
         "Sv_H_hlv_cg/{cp_hlv_implicit,cp_hlv_root_gpf}",
         "Sv_HZicbo_cg/{cp_vs_gpa,cp_vs_gpa_implicit,cp_g_pte}",
       ]
@@ -900,11 +916,16 @@ normative_rule_definitions:
     coverpoint:
       [
         "Sv_H_gstage_cg/cp_hgatp_perm",
+        "Sv_H_gstage_cg/cp_hgatp_perm_fetch",
         "Sv_H_twostage_cg/cp_twostage_perm",
+        "Sv_H_twostage_cg/cp_twostage_perm_fetch",
         "Sv_H_twostage_cg/cp_implicit_gpf",
+        "Sv_H_twostage_cg/cp_implicit_gpf_fetch",
         "Sv_H_twostage_cg/cp_hgatp_sv32x4_gpa",
         "Sv_HSm_trap_cg/cp_guest_page_fault_m",
+        "Sv_HSm_trap_cg/cp_guest_page_fault_m_fetch",
         "Sv_HSm_trap_cg/cp_implicit_gpf_m",
+        "Sv_HSm_trap_cg/cp_implicit_gpf_m_fetch",
         "Sv_H_hlv_cg/cp_hlv_root_gpf",
         "Sv_HZicbo_cg/{cp_vs_gpa,cp_vs_gpa_implicit,cp_g_pte}",
       ]
@@ -920,11 +941,17 @@ normative_rule_definitions:
     coverpoint:
       [
         "Sv_H_twostage_cg/cp_hedeleg_guest_page_fault",
+        "Sv_H_twostage_cg/cp_hedeleg_guest_page_fault_fetch",
         "Sv_H_gstage_cg/cp_hgatp_perm",
+        "Sv_H_gstage_cg/cp_hgatp_perm_fetch",
         "Sv_H_twostage_cg/cp_twostage_perm",
+        "Sv_H_twostage_cg/cp_twostage_perm_fetch",
         "Sv_H_twostage_cg/cp_implicit_gpf",
+        "Sv_H_twostage_cg/cp_implicit_gpf_fetch",
         "Sv_HSm_trap_cg/cp_guest_page_fault_m",
+        "Sv_HSm_trap_cg/cp_guest_page_fault_m_fetch",
         "Sv_HSm_trap_cg/cp_implicit_gpf_m",
+        "Sv_HSm_trap_cg/cp_implicit_gpf_m_fetch",
       ]
 
   # Representative coverpoints; also Sv_H_twostage_cg/cp_hgatp_sv32x4_gpa
@@ -943,7 +970,9 @@ normative_rule_definitions:
     coverpoint:
       [
         "Sv_H_twostage_cg/cp_hedeleg_page_fault",
+        "Sv_H_twostage_cg/cp_hedeleg_page_fault_fetch",
         "Sv_H_twostage_cg/cp_hedeleg_guest_page_fault",
+        "Sv_H_twostage_cg/cp_hedeleg_guest_page_fault_fetch",
       ]
 
   # vsstatus.MXR affects only the VS-stage; the HS-level MXR affects both stages.  MXR applies only to explicit loads.
@@ -987,10 +1016,10 @@ normative_rule_definitions:
 
   # henvcfg.PBMTE gates Svpbmt in the VS-stage, and menvcfg.PBMTE in the G-stage
   - names: [henvcfg_pbmte_op, Svpbmt_vsatp_stage_override_rule]
-    coverpoint: ["Svpbmt_H_cg/cp_vsatp_pbmt"]
+    coverpoint: ["Svpbmt_H_cg/cp_vsatp_pbmt", "Svpbmt_H_cg/cp_vsatp_pbmt_fetch"]
 
   - names: [menvcfg_pbmte_op, Svpbmt_hgatp_stage_override_rule]
-    coverpoint: ["Svpbmt_H_cg/cp_hgatp_pbmt"]
+    coverpoint: ["Svpbmt_H_cg/cp_hgatp_pbmt", "Svpbmt_H_cg/cp_hgatp_pbmt_fetch"]
 
   # henvcfg.ADUE selects Svadu or Svade for the VS-stage, and menvcfg.ADUE for the G-stage
   - name: henvcfg_adue_op
@@ -1080,7 +1109,9 @@ normative_rule_definitions:
     coverpoint:
       [
         "Sv_HSm_trap_cg/cp_guest_page_fault_m",
+        "Sv_HSm_trap_cg/cp_guest_page_fault_m_fetch",
         "Sv_HSm_trap_cg/cp_implicit_gpf_m",
+        "Sv_HSm_trap_cg/cp_implicit_gpf_m_fetch",
       ]
 
   # For a misaligned access or a variable-length instruction fetch that takes a guest-page fault, a nonzero mtval2

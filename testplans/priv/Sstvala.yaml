@@ -21,7 +21,7 @@ coverpoints:
     goal: Fault writes VA to stval
     description: In S-mode under Sv39 or Sv32, jalr to a page whose leaf has R and W but not X
     expectation: stval written with VA
-    bins: "S x jalr x instruction page fault x stval = target"
+    bins: "S x fetch x instruction page fault x stval = fetch address"
     rules:
       - Sstvala_stval_faulting_vaddr
   - name: cp_load_access_fault
@@ -42,7 +42,7 @@ coverpoints:
     goal: Fault writes VA to stval
     description: In S-mode and U-mode, jalr to RVMODEL_ACCESS_FAULT_ADDRESS_FETCH
     expectation: stval written with VA
-    bins: "{S, U} x jalr x instruction access fault x stval = target"
+    bins: "{S, U} x fetch x instruction access fault x stval = fetch address"
     rules:
       - Sstvala_stval_faulting_vaddr
   - name: cp_load_address_misaligned

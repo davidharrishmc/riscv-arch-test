@@ -26,8 +26,9 @@ covergroup Shtvala_cg with function sample(ins_t ins);
         sw : coverpoint ins.current.insn {
             wildcard bins sw = {SW};
         }
-        jalr : coverpoint ins.current.insn {
-            wildcard bins jalr = {JALR};
+        // A fetch fault is a trap at the address that could not be fetched, after the jump that led there
+        exec_acc : coverpoint ins.current.execute_access {
+            bins set = {1};
         }
         instr_guest_page_fault : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE, "code")
             iff (ins.current.csr_wb[CSR_SCAUSE]) {
@@ -48,6 +49,15 @@ covergroup Shtvala_cg with function sample(ins_t ins);
             get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_HTINST) == (`UDB_MXLEN == 64 ? 'h3000 : 'h2000),
             ((get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_HTVAL) << 2) & 'hFFF) ==
                 (ins.current.eff_addr & 'hFFF)
+        } {
+            bins final_gpa    = {2'b01};
+            bins implicit_gpa = {2'b10};
+        }
+        // As htval_gpa, for a fetch, whose address is the PC of its trap
+        htval_gpa_fetch : coverpoint {
+            get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_HTINST) == (`UDB_MXLEN == 64 ? 'h3000 : 'h2000),
+            ((get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_HTVAL) << 2) & 'hFFF) ==
+                (ins.current.pc_rdata & 'hFFF)
         } {
             bins final_gpa    = {2'b01};
             bins implicit_gpa = {2'b10};
@@ -78,7 +88,7 @@ covergroup Shtvala_cg with function sample(ins_t ins);
 
         cp_load_guest_page_fault:  cross priv_mode_vs_vu, lw,   load_guest_page_fault,  htval_gpa;
         cp_store_guest_page_fault: cross priv_mode_vs_vu, sw,   store_guest_page_fault, htval_gpa;
-        cp_instr_guest_page_fault: cross priv_mode_vs_vu, jalr, instr_guest_page_fault, htval_gpa;
+        cp_instr_guest_page_fault: cross priv_mode_vs_vu, exec_acc, instr_guest_page_fault, htval_gpa_fetch;
         // HLV and HSV from HS-mode and U-mode (hstatus.HU = 1)
         cp_hlv_guest_page_fault:   cross priv_mode_s_u, hlv_w, load_guest_page_fault,  htval_gpa_hlsv, hstatus_hu;
         cp_hlvx_guest_page_fault:  cross priv_mode_s_u, hlvx_wu, load_guest_page_fault, htval_gpa_hlsv, hstatus_hu;
@@ -101,13 +111,13 @@ covergroup Shtvala_cg with function sample(ins_t ins);
         // second half: htval holds the guest physical address of the page boundary.  As straddle and
         // htval_page_boundary below, which only harts that perform misaligned accesses compile.
         `ifdef ZCA_SUPPORTED
-            straddle_fetch : coverpoint (ins.current.eff_addr & 'hFFF) {
+            straddle_fetch : coverpoint ins.current.pc_rdata[11:0] {
                 bins page_end = {'hFFE};
             }
             htval_page_boundary_fetch : coverpoint ((get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_HTVAL) << 2) & 'hFFF) {
                 bins page_boundary = {0};
             }
-            cp_instr_straddle_guest_page_fault: cross priv_mode_vs_vu, jalr, instr_guest_page_fault, straddle_fetch,
+            cp_instr_straddle_guest_page_fault: cross priv_mode_vs_vu, exec_acc, instr_guest_page_fault, straddle_fetch,
                                                       htval_page_boundary_fetch;
         `endif
 

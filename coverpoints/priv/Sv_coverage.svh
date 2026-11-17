@@ -20,6 +20,23 @@
     `define SV_ZICBO_ANY
 `endif
 
+// Physical address an access to va reaches through the leaf PTE pte, for page_type 0 (4 KiB) to 3 (terapage). A trace
+// gives no physical address for an access that faults, but when the fault is the physical address itself,
+// translation succeeded and the address follows from the PTE.
+// 1 when bits 63 down to top of the virtual address this event accesses are not all equal.  The address is the data
+// address of a load or store, else the fetch address: a fetch fault is a trap at the address that could not be fetched.
+function automatic logic sv_va_noncanonical(ins_t ins, int top);
+    logic signed [63:0] va = (ins.current.read_access || ins.current.write_access) ? ins.current.virt_adr_d
+                                                                                   : ins.current.virt_adr_i;
+    return (va >>> top) != 0 && (va >>> top) != -1;
+endfunction
+
+function automatic logic [55:0] sv_leaf_pa(logic [XLEN-1:0] pte, logic [XLEN-1:0] va, logic [1:0] page_type);
+    logic [55:0] offset = (56'(1) << (12 + ((XLEN == 32) ? 10 : 9) * page_type)) - 1;
+    logic [55:0] ppn_pa = (XLEN == 32) ? {pte[31:10], 12'b0} : {pte[53:10], 12'b0};
+    return (ppn_pa & ~offset) | (56'(va) & offset);
+endfunction
+
 covergroup Sv_satp_cg with function sample(ins_t ins);
     option.per_instance = 0;
     `include  "general/RISCV_coverage_standard_coverpoints.svh"
@@ -1324,15 +1341,9 @@ covergroup Sv_Zicbo_cg with function sample(ins_t ins);
 
     // access fault coverpoints
     `ifdef RVMODEL_ACCESS_FAULT_ADDRESS_STORE
-        `ifdef UDB_MXLEN_64
-            d_phys_address_nonexistent: coverpoint ({8'b0, ins.current.phys_adr_d[55:2], 2'b00} == `RVMODEL_ACCESS_FAULT_ADDRESS_STORE) {
-                bins non_existent_pa = {1};
-            }
-        `else
-            d_phys_address_nonexistent: coverpoint ({30'b0, ins.current.phys_adr_d[33:2], 2'b00} == `RVMODEL_ACCESS_FAULT_ADDRESS_STORE) {
-                bins non_existent_pa = {1};
-            }
-        `endif
+        d_phys_address_nonexistent: coverpoint ((sv_leaf_pa(ins.current.pte_d, ins.current.virt_adr_d, ins.current.page_type_d) & ~56'h3) == 56'(`RVMODEL_ACCESS_FAULT_ADDRESS_STORE)) {
+            bins non_existent_pa = {1};
+        }
         // PTE points to a non existent physical address
         cp_leaf_PTE_to_nonexistent_pa_cbo_s: cross PTE_RWX_d, d_phys_address_nonexistent, PageType_d, store_acc_fault, cbo_ins, priv_mode_s {
             ignore_bins ig1 = binsof(PTE_RWX_d.leaflvl_u);
@@ -1355,10 +1366,11 @@ covergroup Sv_Zicbo_cg with function sample(ins_t ins);
                     bins non_existent_pa = {1};
                 }
             `endif
+            // PageType_d is the level of the pointer PTE; a level-0 PTE is a leaf, never a pointer
             cp_nonleaf_PTE_to_nonexistent_pa_cbo: cross pointer_PTE_d, nonleaf_ppn_nonexistent, PageType_d, store_acc_fault, cbo_ins, priv_mode_s_u {
-                `ifdef SV48_SUPPORTED ignore_bins ig1 = binsof(PageType_d.sv48_tera); `endif     // Here PageType_d will be the page being pointed towards
-                `ifdef SV39_SUPPORTED ignore_bins ig2 = binsof(PageType_d.sv39_giga); `endif
-                `ifdef UDB_MXLEN_32   ignore_bins ig3 = binsof(PageType_d.sv32_mega); `endif
+                `ifdef SV48_SUPPORTED ignore_bins ig1 = binsof(PageType_d.sv48_kilo); `endif
+                `ifdef SV39_SUPPORTED ignore_bins ig2 = binsof(PageType_d.sv39_kilo); `endif
+                `ifdef UDB_MXLEN_32   ignore_bins ig3 = binsof(PageType_d.sv32_kilo); `endif
             }
         `endif
     `endif
@@ -1445,7 +1457,7 @@ covergroup Sv_Exceptions_cg with function sample(ins_t ins);
     // Access fault coverpoints
     `ifdef RVMODEL_ACCESS_FAULT_ADDRESS_LOAD
         // Accesses land at an offset into the faulting region, which is at least 128 bytes
-        d_phys_address_nonexistent_load: coverpoint ((64'(ins.current.phys_adr_d) - 64'(`RVMODEL_ACCESS_FAULT_ADDRESS_LOAD)) < 64'd128) {
+        d_phys_address_nonexistent_load: coverpoint ((64'(sv_leaf_pa(ins.current.pte_d, ins.current.virt_adr_d, ins.current.page_type_d)) - 64'(`RVMODEL_ACCESS_FAULT_ADDRESS_LOAD)) < 64'd128) {
             // auto fill 1/0 for the physical address being valid
         }
         cp_misaligned_priority_load_s:   cross priv_mode_s, lw, d_virt_adr_misaligned, d_page_table_entry_invalid, d_phys_address_nonexistent_load {
@@ -1467,7 +1479,7 @@ covergroup Sv_Exceptions_cg with function sample(ins_t ins);
     `endif
     `ifdef RVMODEL_ACCESS_FAULT_ADDRESS_STORE
         // Accesses land at an offset into the faulting region, which is at least 128 bytes
-        d_phys_address_nonexistent_store: coverpoint ((64'(ins.current.phys_adr_d) - 64'(`RVMODEL_ACCESS_FAULT_ADDRESS_STORE)) < 64'd128) {
+        d_phys_address_nonexistent_store: coverpoint ((64'(sv_leaf_pa(ins.current.pte_d, ins.current.virt_adr_d, ins.current.page_type_d)) - 64'(`RVMODEL_ACCESS_FAULT_ADDRESS_STORE)) < 64'd128) {
             // auto fill 1/0 for the physical address being valid
         }
         cp_misaligned_priority_store_s:  cross priv_mode_s, sw, d_virt_adr_misaligned, d_page_table_entry_invalid, d_phys_address_nonexistent_store {
@@ -1489,7 +1501,7 @@ covergroup Sv_Exceptions_cg with function sample(ins_t ins);
     `endif
     `ifdef RVMODEL_ACCESS_FAULT_ADDRESS_FETCH
         // Fetches land at an offset into the faulting region, which is at least 128 bytes
-        i_phys_address_nonexistent: coverpoint ((64'(ins.current.phys_adr_i) - 64'(`RVMODEL_ACCESS_FAULT_ADDRESS_FETCH)) < 64'd128) {
+        i_phys_address_nonexistent: coverpoint ((64'(sv_leaf_pa(ins.current.pte_i, ins.current.virt_adr_i, ins.current.page_type_i)) - 64'(`RVMODEL_ACCESS_FAULT_ADDRESS_FETCH)) < 64'd128) {
             // auto fill 1/0 for the physical address being valid
         }
         cp_misaligned_priority_fetch_s:  cross priv_mode_s, jalr,   i_virt_adr_misaligned, i_page_table_entry_invalid, i_phys_address_nonexistent {
@@ -1594,7 +1606,7 @@ covergroup Sv_ExceptionsSm_cg with function sample(ins_t ins);
             wildcard bins lw = {LW};
         }
         // Accesses land at an offset into the faulting region, which is at least 128 bytes
-        d_phys_address_nonexistent_load: coverpoint ((64'(ins.current.phys_adr_d) - 64'(`RVMODEL_ACCESS_FAULT_ADDRESS_LOAD)) < 64'd128) {
+        d_phys_address_nonexistent_load: coverpoint ((64'(sv_leaf_pa(ins.current.pte_d, ins.current.virt_adr_d, ins.current.page_type_d)) - 64'(`RVMODEL_ACCESS_FAULT_ADDRESS_LOAD)) < 64'd128) {
             // auto fill 1/0 for the physical address being valid
         }
         cp_misaligned_priority_load_m:   cross priv_mode_m, lw, d_virt_adr_misaligned, d_phys_address_nonexistent_load, d_page_table_entry_invalid {
@@ -1611,7 +1623,7 @@ covergroup Sv_ExceptionsSm_cg with function sample(ins_t ins);
             wildcard bins sw = {SW};
         }
         // Accesses land at an offset into the faulting region, which is at least 128 bytes
-        d_phys_address_nonexistent_store: coverpoint ((64'(ins.current.phys_adr_d) - 64'(`RVMODEL_ACCESS_FAULT_ADDRESS_STORE)) < 64'd128) {
+        d_phys_address_nonexistent_store: coverpoint ((64'(sv_leaf_pa(ins.current.pte_d, ins.current.virt_adr_d, ins.current.page_type_d)) - 64'(`RVMODEL_ACCESS_FAULT_ADDRESS_STORE)) < 64'd128) {
             // auto fill 1/0 for the physical address being valid
         }
         cp_misaligned_priority_store_m:  cross priv_mode_m, sw, d_virt_adr_misaligned, d_phys_address_nonexistent_store, d_page_table_entry_invalid {
@@ -1646,15 +1658,9 @@ covergroup Sv_ExceptionsZaamo_cg with function sample(ins_t ins);
     // main coverpoints
     // Access fault coverpoints
     `ifdef RVMODEL_ACCESS_FAULT_ADDRESS_AMO
-        `ifdef UDB_MXLEN_64 // Number of physical address bits is different by XLEN, either 34 or 56
-            d_phys_address_nonexistent: coverpoint ({8'b0, ins.current.phys_adr_d[55:2], 2'b00} == `RVMODEL_ACCESS_FAULT_ADDRESS_AMO) {
-                // auto fill 1/0 for the physical address being valid
-            }
-        `else
-            d_phys_address_nonexistent: coverpoint ({30'b0, ins.current.phys_adr_d[33:2], 2'b00} == `RVMODEL_ACCESS_FAULT_ADDRESS_AMO) {
-                // auto fill 1/0 for the physical address being valid
-            }
-        `endif
+        d_phys_address_nonexistent: coverpoint ((sv_leaf_pa(ins.current.pte_d, ins.current.virt_adr_d, ins.current.page_type_d) & ~56'h3) == 56'(`RVMODEL_ACCESS_FAULT_ADDRESS_AMO)) {
+            // auto fill 1/0 for the physical address being valid
+        }
         cp_misaligned_priority_s:        cross priv_mode_s, amoops, d_virt_adr_misaligned, d_page_table_entry_invalid, d_phys_address_nonexistent {
             `ifdef UDB_MISALIGNED_LDST_EXCEPTION_PRIORITY_HIGH
                 `ifndef UDB_MISALIGNED_AMO
@@ -1723,15 +1729,9 @@ covergroup Sv_ExceptionsZaamoSm_cg with function sample(ins_t ins);
 
     // Access fault coverpoints
     `ifdef RVMODEL_ACCESS_FAULT_ADDRESS_AMO
-        `ifdef UDB_MXLEN_64 // Number of physical address bits is different by XLEN, either 34 or 56
-            d_phys_address_nonexistent: coverpoint ({8'b0, ins.current.phys_adr_d[55:2], 2'b00} == `RVMODEL_ACCESS_FAULT_ADDRESS_AMO) {
-                // auto fill 1/0 for the physical address being valid
-            }
-        `else
-            d_phys_address_nonexistent: coverpoint ({30'b0, ins.current.phys_adr_d[33:2], 2'b00} == `RVMODEL_ACCESS_FAULT_ADDRESS_AMO) {
-                // auto fill 1/0 for the physical address being valid
-            }
-        `endif
+        d_phys_address_nonexistent: coverpoint ((sv_leaf_pa(ins.current.pte_d, ins.current.virt_adr_d, ins.current.page_type_d) & ~56'h3) == 56'(`RVMODEL_ACCESS_FAULT_ADDRESS_AMO)) {
+            // auto fill 1/0 for the physical address being valid
+        }
         cp_misaligned_priority_m: cross priv_mode_m, amoops, d_virt_adr_misaligned, d_page_table_entry_invalid, d_phys_address_nonexistent {
             `ifdef UDB_MISALIGNED_LDST_EXCEPTION_PRIORITY_HIGH
                 `ifndef UDB_MISALIGNED_AMO
@@ -1767,15 +1767,9 @@ covergroup Sv_ExceptionsZalrsc_cg with function sample(ins_t ins);
 
     // access fault coverpoints
     `ifdef RVMODEL_ACCESS_FAULT_ADDRESS_LRSC
-        `ifdef UDB_MXLEN_64 // Number of physical address bits is different by XLEN, either 34 or 56
-            d_phys_address_nonexistent: coverpoint ({8'b0, ins.current.phys_adr_d[55:2], 2'b00} == `RVMODEL_ACCESS_FAULT_ADDRESS_LRSC) {
-                // auto fill 1/0 for the physical address being valid
-            }
-        `else
-            d_phys_address_nonexistent: coverpoint ({30'b0, ins.current.phys_adr_d[33:2], 2'b00} == `RVMODEL_ACCESS_FAULT_ADDRESS_LRSC) {
-                // auto fill 1/0 for the physical address being valid
-            }
-        `endif
+        d_phys_address_nonexistent: coverpoint ((sv_leaf_pa(ins.current.pte_d, ins.current.virt_adr_d, ins.current.page_type_d) & ~56'h3) == 56'(`RVMODEL_ACCESS_FAULT_ADDRESS_LRSC)) {
+            // auto fill 1/0 for the physical address being valid
+        }
         cp_misaligned_priority_s:        cross priv_mode_s, lrscops, d_virt_adr_misaligned, d_page_table_entry_invalid, d_phys_address_nonexistent {
             `ifdef UDB_MISALIGNED_LDST_EXCEPTION_PRIORITY_HIGH
                 `ifdef UDB_LRSC_MISALIGNED_BEHAVIOR_ALWAYS_RAISE_MISALIGNED_EXCEPTION
@@ -1844,15 +1838,9 @@ covergroup Sv_ExceptionsZalrscSm_cg with function sample(ins_t ins);
 
     // access fault coverpoints
     `ifdef RVMODEL_ACCESS_FAULT_ADDRESS_LRSC
-        `ifdef UDB_MXLEN_64 // Number of physical address bits is different by XLEN, either 34 or 56
-            d_phys_address_nonexistent: coverpoint ({8'b0, ins.current.phys_adr_d[55:2], 2'b00} == `RVMODEL_ACCESS_FAULT_ADDRESS_LRSC) {
-                // auto fill 1/0 for the physical address being valid
-            }
-        `else
-            d_phys_address_nonexistent: coverpoint ({30'b0, ins.current.phys_adr_d[33:2], 2'b00} == `RVMODEL_ACCESS_FAULT_ADDRESS_LRSC) {
-                // auto fill 1/0 for the physical address being valid
-            }
-        `endif
+        d_phys_address_nonexistent: coverpoint ((sv_leaf_pa(ins.current.pte_d, ins.current.virt_adr_d, ins.current.page_type_d) & ~56'h3) == 56'(`RVMODEL_ACCESS_FAULT_ADDRESS_LRSC)) {
+            // auto fill 1/0 for the physical address being valid
+        }
         cp_misaligned_priority_m: cross priv_mode_m, lrscops, d_virt_adr_misaligned, d_page_table_entry_invalid, d_phys_address_nonexistent {
             `ifdef UDB_MISALIGNED_LDST_EXCEPTION_PRIORITY_HIGH
                 `ifdef UDB_LRSC_MISALIGNED_BEHAVIOR_ALWAYS_RAISE_MISALIGNED_EXCEPTION
@@ -1912,10 +1900,23 @@ covergroup Sv_H_vsstage_cg with function sample(ins_t ins);
     hgatp_bare : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_HGATP, "mode") {
         bins bare = {0};
     }
+    ldst : coverpoint ins.current.insn {
+        wildcard bins lw = {LW};
+        wildcard bins sw = {SW};
+    }
+    // A fetch.  A fetch fault is a trap at the address that could not be fetched, after the jump that led there, so
+    // the fetch cross takes the fetch's own fault cause on that event.
+    exec_acc : coverpoint ins.current.execute_access {
+        bins set = {1};
+    }
     // The trap into HS-mode that the access takes, if any.  Only a trap writes scause on these instructions.
     trap : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
         wildcard bins none = {6'b0?????};
-        bins page_fault    = {6'b101100, 6'b101101, 6'b101111};
+        bins page_fault    = {6'b101101, 6'b101111};
+    }
+    fetch_trap : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
+        wildcard bins none = {6'b0?????};
+        bins page_fault    = {6'b101100};
     }
     vsstatus_sum : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_VSSTATUS, "sum")[0] {}
     vsstatus_mxr : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_VSSTATUS, "mxr")[0] {}
@@ -1936,7 +1937,8 @@ covergroup Sv_H_vsstage_cg with function sample(ins_t ins);
     `endif
 
     // VS-stage leaf permissions and formats (hgatp = Bare), with vsstatus.SUM and vsstatus.MXR
-    cp_vsatp_perm   : cross priv_mode_vs_vu, access, vsatp_mode, hgatp_bare, trap;
+    cp_vsatp_perm       : cross priv_mode_vs_vu, ldst, vsatp_mode, hgatp_bare, trap;
+    cp_vsatp_perm_fetch : cross priv_mode_vs_vu, exec_acc, vsatp_mode, hgatp_bare, fetch_trap;
     cp_vsatp_sum    : cross priv_mode_vs_vu, access, vsatp_mode, hgatp_bare, vsstatus_sum;
     cp_vsstatus_mxr : cross priv_mode_vs_vu, lw, vsatp_mode, hgatp_bare, vsstatus_sum, vsstatus_mxr;
     // VS-stage A/D bits: Svade faults with menvcfg.ADUE = henvcfg.ADUE = 0.  Svadu_H_cg has the ADUE = 1 cases.
@@ -1973,9 +1975,22 @@ covergroup Sv_H_gstage_cg with function sample(ins_t ins);
             bins sv32x4 = {1};
         `endif
     }
+    ldst : coverpoint ins.current.insn {
+        wildcard bins lw = {LW};
+        wildcard bins sw = {SW};
+    }
+    // A fetch.  A fetch fault is a trap at the address that could not be fetched, after the jump that led there, so
+    // the fetch cross takes the fetch's own fault cause on that event.
+    exec_acc : coverpoint ins.current.execute_access {
+        bins set = {1};
+    }
     trap : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
         wildcard bins none     = {6'b0?????};
-        bins guest_page_fault  = {6'b110100, 6'b110101, 6'b110111};
+        bins guest_page_fault  = {6'b110101, 6'b110111};
+    }
+    fetch_trap : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
+        wildcard bins none     = {6'b0?????};
+        bins guest_page_fault  = {6'b110100};
     }
     // HS-level MXR: mret into the guest logs mstatus
     mstatus_mxr : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_MSTATUS, "mxr")[0] {}
@@ -1995,7 +2010,8 @@ covergroup Sv_H_gstage_cg with function sample(ins_t ins);
     `endif
 
     // G-stage leaf permissions and formats (vsatp = Bare); the U bit is checked as for U-mode
-    cp_hgatp_perm : cross priv_mode_vs_vu, access, vsatp_bare, hgatp_mode, trap;
+    cp_hgatp_perm       : cross priv_mode_vs_vu, ldst, vsatp_bare, hgatp_mode, trap;
+    cp_hgatp_perm_fetch : cross priv_mode_vs_vu, exec_acc, vsatp_bare, hgatp_mode, fetch_trap;
     // Only the HS-level MXR makes G-stage execute-only pages readable
     cp_hgatp_mxr  : cross priv_mode_vs_vu, lw, vsatp_bare, hgatp_mode, mstatus_mxr, vsstatus_mxr;
     // G-stage A/D bits: Svade faults with menvcfg.ADUE = 0.  Svadu_H_cg has the ADUE = 1 cases.
@@ -2018,8 +2034,10 @@ covergroup Sv_H_twostage_cg with function sample(ins_t ins);
     lw : coverpoint ins.current.insn {
         wildcard bins lw = {LW};
     }
-    jalr : coverpoint ins.current.insn {
-        wildcard bins jalr = {JALR};
+    // A fetch.  A fetch fault is a trap at the address that could not be fetched, after the jump that led there, so
+    // the fetch crosses take the fetch's own fault causes on that event.
+    exec_acc : coverpoint ins.current.execute_access {
+        bins set = {1};
     }
     vsatp_paged : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_VSATP, "mode") {
         bins paged = {[1:15]};
@@ -2059,21 +2077,38 @@ covergroup Sv_H_twostage_cg with function sample(ins_t ins);
     }
     trap : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
         wildcard bins none     = {6'b0?????};
-        bins page_fault        = {6'b101100, 6'b101101, 6'b101111};
-        bins guest_page_fault  = {6'b110100, 6'b110101, 6'b110111};
+        bins page_fault        = {6'b101101, 6'b101111};
+        bins guest_page_fault  = {6'b110101, 6'b110111};
     }
     guest_page_fault : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
-        bins guest_page_fault  = {6'b110100, 6'b110101, 6'b110111};
+        bins guest_page_fault  = {6'b110101, 6'b110111};
     }
     page_fault : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
-        bins page_fault = {6'b101100, 6'b101101, 6'b101111};
+        bins page_fault = {6'b101101, 6'b101111};
     }
     access_fault : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
-        bins access_fault = {6'b100001, 6'b100101, 6'b100111};
+        bins access_fault = {6'b100101, 6'b100111};
     }
     // A page fault delegated to VS-mode
     vs_page_fault : coverpoint {ins.current.csr_wb[CSR_VSCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_VSCAUSE)[4:0]} {
-        bins page_fault = {6'b101100, 6'b101101, 6'b101111};
+        bins page_fault = {6'b101101, 6'b101111};
+    }
+    fetch_trap : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
+        wildcard bins none     = {6'b0?????};
+        bins page_fault        = {6'b101100};
+        bins guest_page_fault  = {6'b110100};
+    }
+    fetch_page_fault : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
+        bins page_fault = {6'b101100};
+    }
+    fetch_guest_page_fault : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
+        bins guest_page_fault = {6'b110100};
+    }
+    fetch_access_fault : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
+        bins access_fault = {6'b100001};
+    }
+    fetch_vs_page_fault : coverpoint {ins.current.csr_wb[CSR_VSCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_VSCAUSE)[4:0]} {
+        bins page_fault = {6'b101100};
     }
     hedeleg_page_faults : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_HEDELEG, "deleg")[15:12] {
         bins delegated = {4'b1011};
@@ -2088,7 +2123,7 @@ covergroup Sv_H_twostage_cg with function sample(ins_t ins);
         `endif
     }
     // A fetch at the last halfword of a page
-    page_end : coverpoint ins.current.rs1_val[11:0] {
+    page_end : coverpoint ins.current.pc_rdata[11:0] {
         bins page_end = {12'hffe};
     }
     ldst : coverpoint ins.current.insn {
@@ -2110,17 +2145,17 @@ covergroup Sv_H_twostage_cg with function sample(ins_t ins);
         va_noncanonical : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_VSATP, "mode") {
             `ifdef UDB_SV39_VSMODE_TRANSLATION
                 `ifdef UDB_SV39X4_TRANSLATION
-                    bins sv39 = {8} iff (ins.current.rs1_val[63:38] != 0 && ins.current.rs1_val[63:38] != '1);
+                    bins sv39 = {8} iff (sv_va_noncanonical(ins, 38));
                 `endif
             `endif
             `ifdef UDB_SV48_VSMODE_TRANSLATION
                 `ifdef UDB_SV48X4_TRANSLATION
-                    bins sv48 = {9} iff (ins.current.rs1_val[63:47] != 0 && ins.current.rs1_val[63:47] != '1);
+                    bins sv48 = {9} iff (sv_va_noncanonical(ins, 47));
                 `endif
             `endif
             `ifdef UDB_SV57_VSMODE_TRANSLATION
                 `ifdef UDB_SV57X4_TRANSLATION
-                    bins sv57 = {10} iff (ins.current.rs1_val[63:56] != 0 && ins.current.rs1_val[63:56] != '1);
+                    bins sv57 = {10} iff (sv_va_noncanonical(ins, 56));
                 `endif
             `endif
         }
@@ -2156,13 +2191,15 @@ covergroup Sv_H_twostage_cg with function sample(ins_t ins);
     `endif
 
     // VS-stage and G-stage permissions combined: a VS-stage denial is a page fault, a G-stage one a guest-page fault
-    cp_twostage_perm   : cross priv_mode_vs_vu, access, stage_modes, trap;
+    cp_twostage_perm       : cross priv_mode_vs_vu, ldst, stage_modes, trap;
+    cp_twostage_perm_fetch : cross priv_mode_vs_vu, exec_acc, stage_modes, fetch_trap;
     // vsstatus.MXR affects only the VS-stage; the HS-level MXR affects both
     cp_twostage_mxr    : cross priv_mode_vs_vu, lw, stage_modes, vsstatus_mxr, mstatus_mxr;
     // Svade in both stages.  Svadu_H_cg has the ADUE = 1 cases.
     cp_twostage_svade  : cross priv_mode_vs, access, stage_modes, menvcfg_adue, henvcfg_adue;
     // Guest-page faults on implicit VS-stage page-table reads
-    cp_implicit_gpf    : cross priv_mode_vs, access, stage_modes, htinst_read;
+    cp_implicit_gpf       : cross priv_mode_vs, ldst, stage_modes, htinst_read;
+    cp_implicit_gpf_fetch : cross priv_mode_vs, exec_acc, stage_modes, fetch_guest_page_fault, htinst_read;
     // MXR does not make an execute-only G-stage leaf of a VS-stage page table readable to an implicit read
     cp_implicit_mxr    : cross priv_mode_vs, lw, stage_modes, vsstatus_mxr, mstatus_mxr, htinst_read;
     // An access fault on the final address or on a VS-stage or G-stage page-table read reports the original access
@@ -2176,15 +2213,17 @@ covergroup Sv_H_twostage_cg with function sample(ins_t ins);
         cp_twostage_access_fault_store : cross priv_mode_vs, sw, stage_modes, access_fault;
     `endif
     `ifdef RVMODEL_ACCESS_FAULT_ADDRESS_FETCH
-        cp_twostage_access_fault_fetch : cross priv_mode_vs, jalr, stage_modes, access_fault;
+        cp_twostage_access_fault_fetch : cross priv_mode_vs, exec_acc, stage_modes, fetch_access_fault;
     `endif
     // Page faults go to VS-mode when hedeleg delegates them; guest-page faults cannot be delegated
-    cp_hedeleg_page_fault       : cross priv_mode_vs_vu, access, vsatp_paged, hgatp_paged, hedeleg_page_faults, vs_page_fault;
-    cp_hedeleg_guest_page_fault : cross priv_mode_vs_vu, access, vsatp_paged, hgatp_paged, hedeleg_page_faults, guest_page_fault;
+    cp_hedeleg_page_fault             : cross priv_mode_vs_vu, ldst, vsatp_paged, hgatp_paged, hedeleg_page_faults, vs_page_fault;
+    cp_hedeleg_page_fault_fetch       : cross priv_mode_vs_vu, exec_acc, vsatp_paged, hgatp_paged, hedeleg_page_faults, fetch_vs_page_fault;
+    cp_hedeleg_guest_page_fault       : cross priv_mode_vs_vu, ldst, vsatp_paged, hgatp_paged, hedeleg_page_faults, guest_page_fault;
+    cp_hedeleg_guest_page_fault_fetch : cross priv_mode_vs_vu, exec_acc, vsatp_paged, hgatp_paged, hedeleg_page_faults, fetch_guest_page_fault;
     cp_stage_both_bare : cross priv_mode_vs_vu, access, vsatp_bare, hgatp_bare;
     `ifdef ZCA_SUPPORTED
         // A fetch straddling a page boundary faults on the second page
-        cp_straddle    : cross priv_mode_vs, jalr, vsatp_paged, hgatp_paged, page_end, trap;
+        cp_straddle    : cross priv_mode_vs, exec_acc, vsatp_paged, hgatp_paged, page_end, fetch_trap;
     `endif
     `ifdef UDB_MISALIGNED_LDST
     `ifdef UDB_MISALIGNED_SPLIT_STRATEGY_SEQUENTIAL_BYTES
@@ -2194,10 +2233,12 @@ covergroup Sv_H_twostage_cg with function sample(ins_t ins);
     `endif
     `ifdef UDB_MXLEN_64
         // A non-canonical guest virtual address raises a page fault, not a guest-page fault
-        cp_twostage_canonical : cross priv_mode_vs_vu, access, va_noncanonical, page_fault;
+        cp_twostage_canonical       : cross priv_mode_vs_vu, ldst, va_noncanonical, page_fault;
+        cp_twostage_canonical_fetch : cross priv_mode_vs_vu, exec_acc, va_noncanonical, fetch_page_fault;
         `ifdef UDB_REPORT_GPA_IN_HTVAL_ON_GUEST_PAGE_FAULT
             // A guest physical address from a VS-stage leaf or non-leaf PPN that is wider than the G-stage mode allows
-            cp_twostage_gpa_width : cross priv_mode_vs, access, vsatp_paged, htval_gpa_wide, guest_page_fault;
+            cp_twostage_gpa_width       : cross priv_mode_vs, ldst, vsatp_paged, htval_gpa_wide, guest_page_fault;
+            cp_twostage_gpa_width_fetch : cross priv_mode_vs, exec_acc, vsatp_paged, htval_gpa_wide, fetch_guest_page_fault;
         `endif
     `else
         `ifdef UDB_REPORT_GPA_IN_HTVAL_ON_GUEST_PAGE_FAULT
@@ -2320,16 +2361,12 @@ covergroup Sv_H_csr_cg with function sample(ins_t ins);
         bins bare   = {0};
         bins sv39x4 = {8};
     }
-    // In VS-mode, satp is vsatp
-    satp_mode : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_SATP, "mode") {
-        bins bare = {0};
-        bins sv39 = {8};
-    }
 
     // Each MODE written starting from Bare and Sv39 (Sv39x4)
     `ifdef UDB_SV39_VSMODE_TRANSLATION
         cp_vsatp_mode_field : cross priv_mode_hs, csrrw, vsatp, vsatp_mode, mode_written;
-        cp_satp_mode_field  : cross priv_mode_vs, csrrw, satp, satp_mode, mode_written;
+        // In VS-mode, satp is vsatp
+        cp_satp_mode_field  : cross priv_mode_vs, csrrw, satp, vsatp_mode, mode_written;
     `endif
     `ifdef UDB_SV39X4_TRANSLATION
         cp_hgatp_mode_field : cross priv_mode_hs, csrrw, hgatp, hgatp_mode, mode_written;
@@ -2476,11 +2513,6 @@ covergroup Sv_HSm_trap_cg with function sample(ins_t ins);
     option.per_instance = 0;
     `include "general/RISCV_coverage_standard_coverpoints.svh"
 
-    access : coverpoint ins.current.insn {
-        wildcard bins lw   = {LW};
-        wildcard bins sw   = {SW};
-        wildcard bins jalr = {JALR};
-    }
     vsatp_paged : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_VSATP, "mode") {
         bins paged = {[1:15]};
     }
@@ -2488,8 +2520,12 @@ covergroup Sv_HSm_trap_cg with function sample(ins_t ins);
         bins paged = {[1:15]};
     }
     trap : coverpoint {ins.current.csr_wb[CSR_MCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_MCAUSE)[4:0]} {
-        bins page_fault       = {6'b101100, 6'b101101, 6'b101111};
-        bins guest_page_fault = {6'b110100, 6'b110101, 6'b110111};
+        bins page_fault       = {6'b101101, 6'b101111};
+        bins guest_page_fault = {6'b110101, 6'b110111};
+    }
+    fetch_trap : coverpoint {ins.current.csr_wb[CSR_MCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_MCAUSE)[4:0]} {
+        bins page_fault       = {6'b101100};
+        bins guest_page_fault = {6'b110100};
     }
     // The trap records a guest virtual address and that it came from V = 1
     `ifdef UDB_MXLEN_64
@@ -2510,19 +2546,28 @@ covergroup Sv_HSm_trap_cg with function sample(ins_t ins);
         `endif
     }
 
-    jalr : coverpoint ins.current.insn {
-        wildcard bins jalr = {JALR};
-    }
     ldst : coverpoint ins.current.insn {
         wildcard bins lw = {LW};
         wildcard bins sw = {SW};
     }
-    // A fetch at the last halfword of a page, or a word two bytes below the end of a page
+    // A fetch.  A fetch fault is a trap at the address that could not be fetched, after the jump that led there, so
+    // the fetch crosses take the fetch's own fault causes on that event.
+    exec_acc : coverpoint ins.current.execute_access {
+        bins set = {1};
+    }
+    // A word two bytes below the end of a page
     page_end : coverpoint (ins.current.eff_addr & 'hFFF) {
         bins page_end = {'hFFE};
     }
+    // A fetch at the last halfword of a page
+    fetch_page_end : coverpoint ins.current.pc_rdata[11:0] {
+        bins page_end = {12'hffe};
+    }
     guest_page_fault : coverpoint {ins.current.csr_wb[CSR_MCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_MCAUSE)[4:0]} {
-        bins guest_page_fault = {6'b110100, 6'b110101, 6'b110111};
+        bins guest_page_fault = {6'b110101, 6'b110111};
+    }
+    fetch_guest_page_fault : coverpoint {ins.current.csr_wb[CSR_MCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_MCAUSE)[4:0]} {
+        bins guest_page_fault = {6'b110100};
     }
     // A nonzero mtval2 holding the guest physical address of a page boundary >> 2: the faulting second portion
     mtval2_page_boundary : coverpoint ((get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_MTVAL2) << 2) & 'hFFF)
@@ -2531,11 +2576,13 @@ covergroup Sv_HSm_trap_cg with function sample(ins_t ins);
     }
 
     // Guest page faults and guest-page faults taken in M-mode (mtval2 and mtinst are in the trap signature)
-    cp_guest_page_fault_m : cross priv_mode_vs_vu, access, vsatp_paged, hgatp_paged, trap, gva_mpv;
-    cp_implicit_gpf_m     : cross priv_mode_vs_vu, access, vsatp_paged, hgatp_paged, mtinst_pseudo;
+    cp_guest_page_fault_m       : cross priv_mode_vs_vu, ldst, vsatp_paged, hgatp_paged, trap, gva_mpv;
+    cp_guest_page_fault_m_fetch : cross priv_mode_vs_vu, exec_acc, vsatp_paged, hgatp_paged, fetch_trap, gva_mpv;
+    cp_implicit_gpf_m           : cross priv_mode_vs_vu, ldst, vsatp_paged, hgatp_paged, mtinst_pseudo;
+    cp_implicit_gpf_m_fetch     : cross priv_mode_vs_vu, exec_acc, vsatp_paged, hgatp_paged, fetch_guest_page_fault, mtinst_pseudo;
     // A fetch, or a misaligned store or load performed byte by byte, whose second page has an invalid G-stage leaf
     `ifdef ZCA_SUPPORTED
-        cp_straddle_m      : cross priv_mode_vs_vu, jalr, vsatp_paged, hgatp_paged, page_end, guest_page_fault, mtval2_page_boundary;
+        cp_straddle_m      : cross priv_mode_vs_vu, exec_acc, vsatp_paged, hgatp_paged, fetch_page_end, fetch_guest_page_fault, mtval2_page_boundary;
     `endif
     `ifdef UDB_MISALIGNED_LDST
     `ifdef UDB_MISALIGNED_SPLIT_STRATEGY_SEQUENTIAL_BYTES
@@ -2614,8 +2661,7 @@ covergroup Sv_HZicbo_cg with function sample(ins_t ins);
   pseudoinstruction: coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_HTINST) iff (ins.current.csr_wb[CSR_HTINST]) {
     bins read = {'h2000, 'h3000};
   }
-  // In VS-mode the trace logs vsstatus as sstatus
-  vsstatus_sum: coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_SSTATUS, "sum") {
+  vsstatus_sum: coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_VSSTATUS, "sum") {
     bins set = {1};
   }
 

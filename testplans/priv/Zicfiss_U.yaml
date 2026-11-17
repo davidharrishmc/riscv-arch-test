@@ -178,7 +178,7 @@ coverpoints:
     expectation: |-
       Implicit accesses, including instruction fetches, to an SS page are not permitted and raise the access fault for the access type [norm:ssmp_ss_implicit_access_fault]: an instruction access fault (scause=1), with stval = the target address.
       Not an instruction page fault: treating the SS page as X=0 is wrong.
-    bins: priv_mode {U} x jalr x target {SS page} x scause {1}
+    bins: priv_mode {U} x fetch x fetch address {SS page} x scause {1}
   - name: cp_ssp_csr_gating_u
     goal: Verify ssp CSR accessibility from U-mode across the menvcfg.SSE / senvcfg.SSE enable chain
     description: |-

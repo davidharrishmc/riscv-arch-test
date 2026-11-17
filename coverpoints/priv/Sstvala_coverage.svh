@@ -94,6 +94,16 @@ covergroup Sstvala_cg with function sample(ins_t ins);
         type_option.weight = 0;
         bins match = {1};
     }
+    // A fetch fault is a trap at the address that could not be fetched, after the jump that led there, so
+    // stval holds that event's PC
+    exec_acc : coverpoint ins.current.execute_access {
+        type_option.weight = 0;
+        bins set = {1};
+    }
+    stval_pc : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_STVAL) == ins.current.pc_rdata {
+        type_option.weight = 0;
+        bins match = {1};
+    }
     stval_insn : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_STVAL) == `UDB_MXLEN'(ins.current.insn) {
         bins match = {1};
     }
@@ -103,7 +113,7 @@ covergroup Sstvala_cg with function sample(ins_t ins);
             iff (ins.current.csr_wb[CSR_SCAUSE]) {
             bins scause = {1};
         }
-        cp_instr_access_fault: cross priv_mode_s_u, jalr,     instr_access_fault, stval_target;
+        cp_instr_access_fault: cross priv_mode_s_u, exec_acc, instr_access_fault, stval_pc;
     `endif
     `ifdef RVMODEL_ACCESS_FAULT_ADDRESS_LOAD
         load_access_fault : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE, "code")
@@ -207,7 +217,7 @@ covergroup Sstvala_cg with function sample(ins_t ins);
         }
         cp_load_page_fault:  cross priv_mode_s, pf_loadops,  load_page_fault,  stval_address;
         cp_store_page_fault: cross priv_mode_s, pf_storeops, store_page_fault, stval_address;
-        cp_instr_page_fault: cross priv_mode_s, jalr,        instr_page_fault, stval_target;
+        cp_instr_page_fault: cross priv_mode_s, exec_acc,    instr_page_fault, stval_pc;
     `endif
 endgroup
 

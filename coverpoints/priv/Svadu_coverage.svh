@@ -158,6 +158,18 @@ covergroup Svadu_H_cg with function sample(ins_t ins);
         wildcard bins sw   = {SW};
         wildcard bins jalr = {JALR};
     }
+    ldst : coverpoint ins.current.insn {
+        wildcard bins lw = {LW};
+        wildcard bins sw = {SW};
+    }
+    // A fetch.  A fetch fault is a trap at the address that could not be fetched, after the jump that led there, so
+    // the fetch crosses take the fetch's own fault causes on that event.
+    exec_acc : coverpoint ins.current.execute_access {
+        bins set = {1};
+    }
+    fetch_guest_page_fault : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
+        bins guest_page_fault = {6'b110100};
+    }
     hlv : coverpoint ins.current.insn {
         wildcard bins hlv_w   = {HLV_W};
         wildcard bins hlvx_wu = {HLVX_WU};
@@ -270,7 +282,8 @@ covergroup Svadu_H_cg with function sample(ins_t ins);
         ignore_bins read_only = binsof(menvcfg_adue.off) && binsof(henvcfg_adue.on);
     }
     // A guest-page fault on the implicit store that updates a VS-stage A or D bit
-    cp_implicit_gpf  : cross priv_mode_vs, access, stage_modes, htinst_write;
+    cp_implicit_gpf       : cross priv_mode_vs, ldst, stage_modes, htinst_write;
+    cp_implicit_gpf_fetch : cross priv_mode_vs, exec_acc, stage_modes, fetch_guest_page_fault, htinst_write;
     cp_hlv_implicit  : cross priv_mode_hs, hlv, stage_modes, htinst_write;
     // henvcfg.ADUE is read-only zero while menvcfg.ADUE = 0
     cp_henvcfg_menvcfg : cross priv_mode_hs, csrrs, henvcfg, menvcfg_adue;

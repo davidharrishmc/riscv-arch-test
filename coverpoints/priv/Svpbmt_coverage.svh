@@ -152,10 +152,14 @@ covergroup Svpbmt_H_cg with function sample(ins_t ins);
     option.per_instance = 0;
     `include "general/RISCV_coverage_standard_coverpoints.svh"
 
-    access : coverpoint ins.current.insn {
-        wildcard bins lw   = {LW};
-        wildcard bins sw   = {SW};
-        wildcard bins jalr = {JALR};
+    ldst : coverpoint ins.current.insn {
+        wildcard bins lw = {LW};
+        wildcard bins sw = {SW};
+    }
+    // A fetch.  A fetch fault is a trap at the address that could not be fetched, after the jump that led there, so
+    // the fetch crosses take the fetch's own fault causes on that event.
+    exec_acc : coverpoint ins.current.execute_access {
+        bins set = {1};
     }
     csrrs : coverpoint ins.current.insn {
         wildcard bins csrrs = {CSRRS};
@@ -204,21 +208,35 @@ covergroup Svpbmt_H_cg with function sample(ins_t ins);
     // The trap into HS-mode that the access takes, if any.  Only a trap writes scause on these instructions.
     vs_trap : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
         wildcard bins none = {6'b0?????};
-        bins page_fault    = {6'b101100, 6'b101101, 6'b101111};
+        bins page_fault    = {6'b101101, 6'b101111};
     }
     g_trap : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
         wildcard bins none    = {6'b0?????};
-        bins guest_page_fault = {6'b110100, 6'b110101, 6'b110111};
+        bins guest_page_fault = {6'b110101, 6'b110111};
+    }
+    fetch_vs_trap : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
+        wildcard bins none = {6'b0?????};
+        bins page_fault    = {6'b101100};
+    }
+    fetch_g_trap : coverpoint {ins.current.csr_wb[CSR_SCAUSE], get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_SCAUSE)[4:0]} {
+        wildcard bins none    = {6'b0?????};
+        bins guest_page_fault = {6'b110100};
     }
 
     // PBMT in a VS-stage leaf is reserved unless henvcfg.PBMTE = 1, and PBMT = 3 always.
     // The leaves have PBMT = 1-3, so every access with PBMTE = 0 faults.
-    cp_vsatp_pbmt : cross priv_mode_vs, access, vsatp_mode, hgatp_bare, henvcfg_pbmte, vs_trap {
+    cp_vsatp_pbmt : cross priv_mode_vs, ldst, vsatp_mode, hgatp_bare, henvcfg_pbmte, vs_trap {
         ignore_bins reserved = binsof(henvcfg_pbmte.off) && binsof(vs_trap.none);
     }
+    cp_vsatp_pbmt_fetch : cross priv_mode_vs, exec_acc, vsatp_mode, hgatp_bare, henvcfg_pbmte, fetch_vs_trap {
+        ignore_bins reserved = binsof(henvcfg_pbmte.off) && binsof(fetch_vs_trap.none);
+    }
     // PBMT in a G-stage leaf is reserved unless menvcfg.PBMTE = 1, and PBMT = 3 always
-    cp_hgatp_pbmt : cross priv_mode_vs, access, vsatp_bare, hgatp_mode, menvcfg_pbmte, g_trap {
+    cp_hgatp_pbmt : cross priv_mode_vs, ldst, vsatp_bare, hgatp_mode, menvcfg_pbmte, g_trap {
         ignore_bins reserved = binsof(menvcfg_pbmte.off) && binsof(g_trap.none);
+    }
+    cp_hgatp_pbmt_fetch : cross priv_mode_vs, exec_acc, vsatp_bare, hgatp_mode, menvcfg_pbmte, fetch_g_trap {
+        ignore_bins reserved = binsof(menvcfg_pbmte.off) && binsof(fetch_g_trap.none);
     }
     // henvcfg.PBMTE is read-only zero while menvcfg.PBMTE = 0
     cp_henvcfg_menvcfg : cross priv_mode_hs, csrrs, henvcfg, menvcfg_pbmte;

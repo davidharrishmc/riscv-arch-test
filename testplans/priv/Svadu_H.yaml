@@ -21,11 +21,15 @@ coverpoints:
       With ADUE = 0 for a stage (Svade), an access with A = 0, or a store with D = 0, raises a page fault (VS-stage) or guest-page fault (G-stage).  With ADUE = 1 (Svadu), the hart sets the bits.
       The G-stage checks and updates the leaf of a VS-stage page table as for an implicit access: the PTE read sets A, and a VS-stage A/D update is an implicit store that also sets D.
     bins: VS x {sw, lw, jalr} x stage_modes x (menvcfg.ADUE, henvcfg.ADUE) {00, 10, 11}
-  - name: cp_implicit_gpf
+  - name: |-
+      cp_implicit_gpf
+      cp_implicit_gpf_fetch
     goal: Guest-page faults on implicit VS-stage A/D updates
     description: In VS-mode with menvcfg.ADUE = henvcfg.ADUE = 1, store, load and fetch through a VS-stage leaf with A = D = 0 in a level-0 page table at a guest physical address whose G-stage leaf is read-only.
     expectation: The VS-stage A/D update is an implicit store, so it needs G-stage write permission.  Each access raises a guest-page fault reported for the original access type (instruction, load or store/AMO), with htval = the guest physical address of the VS-stage PTE >> 2 and, if htval is nonzero, htinst = the write pseudoinstruction 0x3020 on RV64, 0x2020 on RV32.
-    bins: VS x {sw, lw, jalr} x stage_modes x htinst write pseudoinstruction
+    bins: |-
+      cp_implicit_gpf: VS x {sw, lw} x stage_modes x htinst write pseudoinstruction
+      cp_implicit_gpf_fetch: VS x fetch x stage_modes x instruction guest-page fault x htinst write pseudoinstruction
     notes: Sv_H cp_implicit_gpf has the read pseudoinstruction cases.
   - name: cp_hlv_implicit
     goal: Guest-page faults on the implicit VS-stage A/D updates of HLV, HLVX and HSV
