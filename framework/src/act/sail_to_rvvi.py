@@ -176,7 +176,15 @@ def sailLog2Trace(inputLogFile: Path, outputTraceFile: Path) -> None:
                 pc = epc if epc is not None else 0
                 trap_event = Event(pc, 0 if fetch_fault else insn_at.get(pc, 0), mode, csrs=dict(trap_csrs), trap=True)
                 if fetch_fault:
-                    trap_event.mems = [*fault_fetch_mems, mem_record("I", 0, tval, 0, FAULTED="1")]
+                    trap_event.mems = list(fault_fetch_mems)
+                    # A fetch that hit Sail's TLB logs no walk; report the PTE of the faulting page from the TLB model
+                    walked = {int(r.split()[3], 16) >> 12 for r in fault_fetch_mems if " PTE " in r}
+                    if translating and mode != "M" and tval >> 12 not in walked and tval >> 12 in tlb_va:
+                        pte, level = tlb_va[tval >> 12]
+                        trap_event.mems.append(
+                            mem_record("D", pte_bytes, tval, 0, PTE=f"0x{pte:x}", PT=PAGE_TYPE[level])
+                        )
+                    trap_event.mems.append(mem_record("I", 0, tval, 0, FAULTED="1"))
                 emit(out, trap_event)
             fault_fetch_mems.clear()
             event, trap, trap_csrs = None, None, {}
