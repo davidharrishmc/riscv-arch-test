@@ -319,7 +319,7 @@ size_data_outcome: coverpoint sdtrig_bp_taken(ins) == (sdtrig_size_data_case(ins
 }
 // cp_mcontrol6_match_size_*: the match, size and case of a select = 1 trigger (sdtrig_ms_case)
 `ifdef SDTRIG_SIZE_DATA
-    ms_match: coverpoint get_csr_field(ins.hart, ins.issue, sdtrig_ms_when(ins), CSR_TDATA1, "match")[3:0] {
+    ms_match: coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_TDATA1, "match")[3:0] {
         type_option.weight = 0;
         bins equal = {4'd0};
         `ifdef UDB_SDTRIG_MCONTROL6_MATCH_LEGAL_VALUES_1  bins napot         = {4'd1};  `endif
@@ -349,7 +349,7 @@ size_data_outcome: coverpoint sdtrig_bp_taken(ins) == (sdtrig_size_data_case(ins
     // On RV64 the high half of an instruction is 0, so mask high (5) and not mask high (13) on a 32-bit
     // instruction either fire on every instruction, including the csrw that disarms the trigger, or on none:
     // only the never-firing groups are tested, and the crosses leave those matches out
-    ms_match_exec: coverpoint get_csr_field(ins.hart, ins.issue, sdtrig_ms_when(ins), CSR_TDATA1, "match")[3:0] {
+    ms_match_exec: coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_TDATA1, "match")[3:0] {
         type_option.weight = 0;
         bins equal = {4'd0};
         `ifdef UDB_SDTRIG_MCONTROL6_MATCH_LEGAL_VALUES_1  bins napot         = {4'd1};  `endif
@@ -366,7 +366,7 @@ size_data_outcome: coverpoint sdtrig_bp_taken(ins) == (sdtrig_size_data_case(ins
             `ifdef UDB_SDTRIG_MCONTROL6_MATCH_LEGAL_VALUES_13 bins not_mask_high = {4'd13}; `endif
         `endif
     }
-    ms_size_exec: coverpoint get_csr_field(ins.hart, ins.issue, sdtrig_ms_when(ins), CSR_TDATA1, "size")[2:0] {
+    ms_size_exec: coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_TDATA1, "size")[2:0] {
         type_option.weight = 0;
         `ifdef SDTRIG_MATCH_SIZE_EXEC16 bins b16 = {3'd2}; `endif
         `ifdef UDB_SDTRIG_MCONTROL6_SIZE_LEGAL_VALUES_3 bins b32 = {3'd3}; `endif
@@ -379,7 +379,7 @@ size_data_outcome: coverpoint sdtrig_bp_taken(ins) == (sdtrig_size_data_case(ins
     `ifdef SDTRIG_MATCH_SIZE_EXEC16
         // a 32-bit instruction against a size = 2 trigger: a 32-bit trigger's own disarming csrw rules out
         // some tdata2 values for 16-bit instructions on size = 3, so only this direction is required
-        ms_size_exec16: coverpoint get_csr_field(ins.hart, ins.issue, sdtrig_ms_when(ins), CSR_TDATA1, "size")[2:0] {
+        ms_size_exec16: coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_TDATA1, "size")[2:0] {
             type_option.weight = 0;
             bins b16 = {3'd2};
         }

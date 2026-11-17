@@ -16,7 +16,7 @@ a_tdata2_data: coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_TD
     wildcard bins value = {'x} iff (get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_TDATA2) != '0);
     bins zero           = {'0};
 }
-lrsc_op: coverpoint ins.current.insn {
+lrsc_op: coverpoint sdtrig_a_insn(ins) {
     type_option.weight = 0;
     wildcard bins lr_w = {LR_W};
     wildcard bins sc_w = {SC_W};
@@ -26,7 +26,7 @@ lrsc_op: coverpoint ins.current.insn {
     `endif
 }
 // data matches with size = 0 are defined only for XLEN-wide accesses
-lrsc_op_xlen: coverpoint ins.current.insn {
+lrsc_op_xlen: coverpoint sdtrig_a_insn(ins) {
     type_option.weight = 0;
     `ifdef UDB_MXLEN_64
         wildcard bins lr_d = {LR_D};

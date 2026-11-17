@@ -13,9 +13,10 @@
 `ifndef RISCV_COVERAGE_SDTRIG_FUNCTIONS_SVH
 `define RISCV_COVERAGE_SDTRIG_FUNCTIONS_SVH
 
-// 1 when a trap wrote xcause (addr) on this record: the trace logs an interrupt, exception or trigger breakpoint on
-// the record of the instruction it follows or replaces. A CSR instruction that names xcause also logs it, so only
-// other records count as trap entries.
+// 1 when a trap wrote xcause (addr) on this record. An exception is reported on the record of the instruction that
+// raised it; a trap taken before an instruction executes (an interrupt, or a breakpoint from an execute, icount or
+// load data trigger) is a trap record of its own, at the PC of the instruction it replaces. A CSR instruction that
+// names xcause also writes it, so only other records count as trap entries.
 function automatic logic sdtrig_trap_wrote(ins_t ins, logic [11:0] addr);
     return ins.current.csr_wb[addr] &&
            !(ins.current.insn[6:0] == 7'b1110011 && ins.current.insn[14:12] != 3'b000 && ins.current.insn[31:20] == addr);
@@ -33,11 +34,17 @@ endfunction
 function automatic logic [XLEN-1:0] sdtrig_bp_epc(ins_t ins);
     return sdtrig_bp_into(ins, CSR_SCAUSE) ? ins.current.csr[CSR_SEPC] : ins.current.csr[CSR_MEPC];
 endfunction
-// PC of the instruction after this record: the target of an xRET, else the next sequential PC
-function automatic logic [XLEN-1:0] sdtrig_next_pc(ins_t ins);
-    if (ins.current.insn == MRET) return ins.prev.csr[CSR_MEPC];
-    if (ins.current.insn == SRET) return ins.prev.csr[CSR_SEPC];
-    return ins.current.pc_rdata + ((ins.current.insn[1:0] == 2'b11) ? 4 : 2);
+// 1 when a trigger breakpoint was taken before the instruction at this record's PC executed: a trap record whose xepc
+// is its own PC
+function automatic logic sdtrig_bp_before(ins_t ins);
+    return ins.current.trap && sdtrig_bp_taken(ins) && sdtrig_bp_epc(ins) == ins.current.pc_rdata;
+endfunction
+// 1 when the previous record is a load (opcode LOAD, or lr) that retired. A load data trigger compares the loaded
+// value, so a hart may fire it after the load, taking the breakpoint before the next instruction (sdtrig_bp_before);
+// the load's outcome is then known on the record after it. A hart may instead fire it before the load retires, on the
+// load's own record. The tests put a nop after each such load.
+function automatic logic sdtrig_after_load(ins_t ins);
+    return !ins.prev.trap && (ins.prev.insn[6:0] == 7'b0000011 || ins.prev.insn ==? LR_W || ins.prev.insn ==? LR_D);
 endfunction
 
 // icount fields: count 23:10, m 9, pending 8, s 7, u 6, vs 26, vu 25. mode_bit is the m, s or u bit of the mode the
@@ -45,12 +52,12 @@ endfunction
 function automatic logic [13:0] sdtrig_icount_count(logic [XLEN-1:0] tdata1);
     return tdata1[23:10];
 endfunction
-// Outcome of a readback (csrr tdata1) of an icount trigger. tdata1 before the read is the value written to arm it,
-// because the trace does not log the count or pending changing; after the read it is the current value.
+// Outcome of a readback (csrr tdata1) of an icount trigger: armed is the value the test wrote to tdata1, now the value
+// read back.
 //   1: mode bit clear, count unchanged    2: mode bit set, counted to 0 (hard-wired 1: cleared) and fired (pending clear)
 //   3: count 0, pending stays clear 4: count 0, pending was set and firing cleared it    0: anything else
 function automatic logic [2:0] sdtrig_icount_outcome(ins_t ins, int mode_bit);
-    logic [XLEN-1:0] armed = get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_TDATA1);
+    logic [XLEN-1:0] armed = get_csr_written(ins.hart, CSR_TDATA1);
     logic [XLEN-1:0] now   = get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_TDATA1);
     if (sdtrig_icount_count(armed) == 0) begin
         if (!armed[8] && sdtrig_icount_count(now) == 0 && !now[8]) return 3'd3;
@@ -66,21 +73,32 @@ function automatic logic [2:0] sdtrig_icount_outcome(ins_t ins, int mode_bit);
     return 3'd0;
 endfunction
 
+// The lr/sc/AMO whose mcontrol6 outcome this record shows: the instruction itself, except that with select = 1 an lr
+// that retired is checked on the record after it (sdtrig_after_load), and not on its own.
+function automatic logic [31:0] sdtrig_a_insn(ins_t ins);
+    logic select = get_csr_field(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_TDATA1, "select")[0];
+    if (select && sdtrig_after_load(ins) && (ins.prev.insn ==? LR_W || ins.prev.insn ==? LR_D)) return ins.prev.insn;
+    if (select && !ins.current.trap && (ins.current.insn ==? LR_W || ins.current.insn ==? LR_D)) return '0;
+    return ins.current.insn;
+endfunction
 // 1 when an mcontrol6 trigger with action = 0 fired on this lr/sc/AMO exactly when it should.
 // lr and the AMO read are loads, sc and the AMO write are stores. An address match compares rs1 (the access address).
 // A data match compares the sc store data (rs2), or for lr the loaded data: the test stores the nonzero tdata2 at the
 // address first, so lr matches exactly when tdata2 is nonzero.
+// An lr data match (select = 1) fires on the lr's own record or after the lr (sdtrig_a_insn), before an instruction.
 function automatic logic sdtrig_a_as_expected(ins_t ins);
     logic [XLEN-1:0] tdata1 = get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_TDATA1);
     logic [XLEN-1:0] tdata2 = get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, CSR_TDATA2);
-    logic is_lr  = ins.current.insn ==? LR_W  || ins.current.insn ==? LR_D;
-    logic is_sc  = ins.current.insn ==? SC_W  || ins.current.insn ==? SC_D;
-    logic is_amo = ins.current.insn[6:0] == 7'b0101111 && !is_lr && !is_sc;
+    logic [31:0] insn = sdtrig_a_insn(ins);
+    logic is_lr  = insn ==? LR_W  || insn ==? LR_D;
+    logic is_sc  = insn ==? SC_W  || insn ==? SC_D;
+    logic is_amo = insn[6:0] == 7'b0101111 && !is_lr && !is_sc;
     logic match;
     if (!tdata1[21])   match = tdata2 == ins.current.rs1_val;
     else if (is_sc)    match = tdata2 == ins.current.rs2_val;
     else               match = is_lr && tdata2 != '0;
-    return sdtrig_bp_taken(ins) == (match && (((is_lr || is_amo) && tdata1[0]) || ((is_sc || is_amo) && tdata1[1])));
+    return (is_lr && tdata1[21] ? sdtrig_bp_before(ins) : sdtrig_bp_taken(ins)) ==
+           (match && (((is_lr || is_amo) && tdata1[0]) || ((is_sc || is_amo) && tdata1[1])));
 endfunction
 
 // 1 when an mcontrol6 trigger with action = 0 fired on this cache operation exactly when it should: cbo.* match as
@@ -148,17 +166,11 @@ endfunction
 function automatic logic sdtrig_trap_exception(ins_t ins);
     return sdtrig_trap_handler(ins) != 2'd2 && !sdtrig_trap_cause(ins)[XLEN-1];
 endfunction
-// Mode the trap was taken from: an interrupt taken on an xRET record is taken in the mode the xRET returns to
-function automatic logic [1:0] sdtrig_trap_origin(ins_t ins);
-    if (ins.current.insn == MRET) return get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_MSTATUS, "mpp")[1:0];
-    if (ins.current.insn == SRET) return {1'b0, get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_MSTATUS, "spp")[0]};
-    return ins.current.mode;
-endfunction
 // {handler, tdata1 priv bit for the origin mode (itrigger/etrigger m 9, s 7, u 6), fired}
 function automatic logic [3:0] sdtrig_trap_result(ins_t ins);
     logic [XLEN-1:0] tdata1 = get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_TDATA1);
     logic priv_bit;
-    case (sdtrig_trap_origin(ins))
+    case (ins.current.mode)
         2'd3:    priv_bit = tdata1[9];
         2'd1:    priv_bit = tdata1[7];
         default: priv_bit = tdata1[6];
@@ -196,11 +208,9 @@ function automatic logic [1:0] sdtrig_priv_bits_outcome(ins_t ins, int mode_bit)
 endfunction
 
 // An execute trigger that fires takes the breakpoint instead of executing the instruction it matches, which never
-// retires. The trace logs that breakpoint (xcause = 3, xepc = the matched instruction's PC) on the record before it,
-// so an execute fire is sampled there: 1 when a trigger breakpoint was taken on the instruction after this record.
-// After an xRET (the T-SBI return in SdtrigS/U) that instruction is the xRET's target.
+// retires: the breakpoint is a trap record at that instruction's PC (sdtrig_bp_before).
 function automatic logic sdtrig_exec_fired(ins_t ins);
-    return sdtrig_bp_taken(ins) && sdtrig_bp_epc(ins) == sdtrig_next_pc(ins);
+    return sdtrig_bp_before(ins);
 endfunction
 // cp_mcontrol6_execute_size target: 1 = addi x0, x1, 0 (the 32-bit hint), 2 = c.nop. A fire on a select = data trigger
 // with match = equal identifies the target by tdata2; otherwise the target is the instruction that retired.
@@ -241,21 +251,16 @@ function automatic logic [1:0] sdtrig_size_data_case(ins_t ins);
     mask = (8 * bytes >= XLEN) ? '1 : ((XLEN'(1) << (8 * bytes)) - 1);
     return ((ins.current.rs2_val & mask) == ins.current.csr[CSR_TDATA2]) ? 2'd1 : 2'd2;
 endfunction
-// cp_mcontrol6_match_size_*: an execute fire is sampled on the record before the matched instruction (see
-// sdtrig_exec_fired), where tdata1 is read after; every other record reads tdata1 from before it, so a target that
-// itself rewrites tdata1 (a csrw tdata1 that does not fire) is sampled with the trigger that saw it
-function automatic int sdtrig_ms_when(ins_t ins);
-    return sdtrig_exec_fired(ins) ? `SAMPLE_AFTER : `SAMPLE_BEFORE;
-endfunction
-// For a select = 1 mcontrol6 trigger armed for the mode the instruction runs in (sdtrig_trap_origin) whose x/s/l
-// bits are exactly xsl (execute = 3'b100, store = 3'b010, load = 3'b001): 1 = an access of the trigger's size fired
-// it, 2 = an access of that size did not, 3 = an access of another width did not; 0 = anything else. Execution
-// counts only the test's targets: addi/slti x0 hints, c.nop hints and CSR instructions on tdata1/tdata3 (which
-// include the csrw tdata1, x0 that disarms the trigger)
+// For a select = 1 mcontrol6 trigger armed for the mode the instruction runs in whose x/s/l bits are exactly xsl
+// (execute = 3'b100, store = 3'b010, load = 3'b001): 1 = an access of the trigger's size fired it, 2 = an access of
+// that size did not, 3 = an access of another width did not; 0 = anything else. Execution counts only the test's
+// targets: addi/slti x0 hints, c.nop hints and CSR instructions on tdata1/tdata3 (which include the csrw tdata1, x0
+// that disarms the trigger). A load that fires its trigger before it retires is checked on its own record; one that
+// retires is checked on the record after it (sdtrig_after_load), with tdata1 from before that record, which the load
+// does not change.
 function automatic logic [1:0] sdtrig_ms_case(ins_t ins, logic [2:0] xsl);
-    int when = sdtrig_ms_when(ins);
-    logic [1:0] origin = sdtrig_trap_origin(ins);
-    string mode_bit = (origin == 2'd3) ? "m" : (origin == 2'd1) ? "s" : "u";
+    int when = `SAMPLE_BEFORE;
+    string mode_bit = (ins.current.mode == 2'd3) ? "m" : (ins.current.mode == 2'd1) ? "s" : "u";
     int bytes, size_bytes;
     logic fired;
     if (get_csr_field(ins.hart, ins.issue, when, CSR_TDATA1, "type")[3:0] != 4'd6 ||
@@ -279,10 +284,17 @@ function automatic logic [1:0] sdtrig_ms_case(ins_t ins, logic [2:0] xsl);
             return 2'd0;
         bytes = (ins.current.insn[1:0] == 2'b11) ? 4 : 2;
         fired = 1'b0;
-    end else begin
-        if (ins.current.insn[6:0] != ((xsl == 3'b010) ? 7'b0100011 : 7'b0000011) || ins.current.insn[14]) return 2'd0;
+    end else if (xsl == 3'b010) begin
+        if (ins.current.insn[6:0] != 7'b0100011 || ins.current.insn[14]) return 2'd0;
         bytes = 1 << ins.current.insn[13:12];
         fired = sdtrig_bp_taken(ins);
+    end else if (sdtrig_bp_before(ins) && ins.current.insn[6:0] == 7'b0000011 && !ins.current.insn[14]) begin
+        bytes = 1 << ins.current.insn[13:12];
+        fired = 1'b1;
+    end else begin
+        if (!sdtrig_after_load(ins) || ins.prev.insn[6:0] != 7'b0000011 || ins.prev.insn[14]) return 2'd0;
+        bytes = 1 << ins.prev.insn[13:12];
+        fired = sdtrig_bp_before(ins);
     end
     if (bytes == size_bytes) return fired ? 2'd1 : 2'd2;
     return fired ? 2'd0 : 2'd3;
@@ -406,8 +418,8 @@ function automatic logic [1:0] sdtrig_tdata2_xlate_exec(ins_t ins);
 `endif
         default: return 2'd0;
     endcase
-    // the fire is logged on the jump into the alias, so xepc is not the next sequential PC (sdtrig_exec_fired)
-    if (sdtrig_bp_taken(ins))
+    // the fire is a trap record at the matched instruction (sdtrig_exec_fired)
+    if (sdtrig_exec_fired(ins))
         return (sdtrig_bp_epc(ins) == tdata2 && (tdata2 | offset_mask) == '1) ? 2'd1 : 2'd0;
     if ((ins.current.pc_rdata | offset_mask) == '1 && tdata2 != ins.current.pc_rdata &&
         ((tdata2 ^ ins.current.pc_rdata) & offset_mask) == '0)

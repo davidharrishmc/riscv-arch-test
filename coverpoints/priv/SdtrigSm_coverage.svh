@@ -131,6 +131,17 @@ covergroup SdtrigSm_icount_cg with function sample(ins_t ins);
     `include "general/RISCV_coverage_sdtrig_coverpoints.svh"
     `include "general/RISCV_coverage_sdtrig_icount_coverpoints.svh"
 
+    // An icount trigger that reaches count 0, or is armed with pending = 1, fires before the next instruction: its
+    // breakpoint is a trap record after the instruction that counted or armed it
+    after_csrw_tdata1: coverpoint {ins.prev.insn ==? CSRW, ins.prev.insn[31:20]} {
+        type_option.weight = 0;
+        bins csrw_tdata1 = {{1'b1, CSR_TDATA1}};
+    }
+    after_mret: coverpoint ins.prev.insn {
+        type_option.weight = 0;
+        bins mret = {MRET};
+    }
+
     `ifndef UDB_SDTRIG_ICOUNT_COUNT_HARDWIRED_1
         // cp_icount_self_write: csrw tdata1 = icount with count = 100 on an icount trigger armed with count = 1, m = 1
         icount_self_write: coverpoint {sdtrig_icount_count(get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_TDATA1)) == 1,
@@ -149,11 +160,11 @@ covergroup SdtrigSm_icount_cg with function sample(ins_t ins);
         cp_icount_instr:      cross priv_mode_m, triggernum_icount, csrr, csr_tdata1, icount_readback, armed_gt1, icount_count_result;  // NTRIG * 2 m
         cp_icount_instr_fire: cross priv_mode_m, triggernum_icount, icount_fired, fired_gt1_mode;                                          // NTRIG
         cp_icount_eq0:        cross priv_mode_m, triggernum_icount, csrr, csr_tdata1, icount_readback, armed_zero_mode, icount_eq0_result; // NTRIG * 2 pending
-        cp_icount_eq0_fire:   cross priv_mode_m, triggernum_icount, icount_fired, fired_zero_pending, csrw, csr_tdata1;                // NTRIG; the tdata1 write that arms the pending trigger: it fires before the next instruction
+        cp_icount_eq0_fire:   cross priv_mode_m, triggernum_icount, icount_fired, fired_zero_pending, after_csrw_tdata1;              // NTRIG; the tdata1 write that arms the pending trigger: it fires before the next instruction
         cp_icount_self_write: cross priv_mode_m, triggernum_icount, csrw, csr_tdata1, icount_self_write;                               // NTRIG
     `endif
     cp_icount_trap:           cross priv_mode_m, triggernum_icount, csrr, csr_tdata1, icount_readback, armed_one, icount_count_result;   // NTRIG * 2 m
-    cp_icount_trap_fire:      cross priv_mode_m, triggernum_icount, icount_fired, fired_one_mode, mret;                                     // NTRIG
+    cp_icount_trap_fire:      cross priv_mode_m, triggernum_icount, icount_fired, fired_one_mode, after_mret;                               // NTRIG
     `endif
 endgroup
 
@@ -243,14 +254,14 @@ covergroup SdtrigSm_itrigger_cg with function sample(ins_t ins);
 
     // main coverpoints
     `ifdef SDTRIG_ITRIGGER_ANY
-    cp_itrigger_m:           cross exec_mode_m, triggernum_itrigger, itrigger_interrupt, itrigger_code_m, trap_not_delegated, trap_selected, trap_result_m;           // NTRIG * interrupts * 2 m
-    cp_itrigger_m_other:     cross exec_mode_m, triggernum_itrigger, itrigger_interrupt, trap_not_delegated, trap_not_selected, trap_result_m;                         // NTRIG * 2 m
+    cp_itrigger_m:           cross priv_mode_m, triggernum_itrigger, itrigger_interrupt, itrigger_code_m, trap_not_delegated, trap_selected, trap_result_m;           // NTRIG * interrupts * 2 m
+    cp_itrigger_m_other:     cross priv_mode_m, triggernum_itrigger, itrigger_interrupt, trap_not_delegated, trap_not_selected, trap_result_m;                         // NTRIG * 2 m
     `ifdef S_SUPPORTED
-        cp_itrigger_s:       cross exec_mode_s, triggernum_itrigger, itrigger_interrupt, itrigger_code_s, trap_delegated, trap_selected, trap_result_s;               // NTRIG * S interrupts * 2 s
-        cp_itrigger_s_other: cross exec_mode_s, triggernum_itrigger, itrigger_interrupt, trap_delegated, trap_not_selected, trap_result_s_other;                       // NTRIG * 2 s
+        cp_itrigger_s:       cross priv_mode_s, triggernum_itrigger, itrigger_interrupt, itrigger_code_s, trap_delegated, trap_selected, trap_result_s;               // NTRIG * S interrupts * 2 s
+        cp_itrigger_s_other: cross priv_mode_s, triggernum_itrigger, itrigger_interrupt, trap_delegated, trap_not_selected, trap_result_s_other;                       // NTRIG * 2 s
         `ifdef U_SUPPORTED
-            cp_itrigger_u:       cross exec_mode_u, triggernum_itrigger, itrigger_interrupt, itrigger_code_s, trap_delegated, trap_selected, trap_result_s;           // NTRIG * S interrupts * 2 u
-            cp_itrigger_u_other: cross exec_mode_u, triggernum_itrigger, itrigger_interrupt, trap_delegated, trap_not_selected, trap_result_s_other;                   // NTRIG * 2 u
+            cp_itrigger_u:       cross priv_mode_u, triggernum_itrigger, itrigger_interrupt, itrigger_code_s, trap_delegated, trap_selected, trap_result_s;           // NTRIG * S interrupts * 2 u
+            cp_itrigger_u_other: cross priv_mode_u, triggernum_itrigger, itrigger_interrupt, trap_delegated, trap_not_selected, trap_result_s_other;                   // NTRIG * 2 u
         `endif
     `endif
     `endif
@@ -371,16 +382,16 @@ covergroup SdtrigSm_etrigger_cg with function sample(ins_t ins);
 
     // main coverpoints
     `ifdef SDTRIG_ETRIGGER_ANY
-    cp_etrigger_m:               cross exec_mode_m, triggernum_etrigger, etrigger_exception, etrigger_code_m, trap_selected, trap_result_m;                             // NTRIG * M exceptions * 2 m
-    cp_etrigger_m_other:         cross exec_mode_m, triggernum_etrigger, etrigger_exception, trap_not_selected, trap_result_m;                                           // NTRIG * 2 m
+    cp_etrigger_m:               cross priv_mode_m, triggernum_etrigger, etrigger_exception, etrigger_code_m, trap_selected, trap_result_m;                             // NTRIG * M exceptions * 2 m
+    cp_etrigger_m_other:         cross priv_mode_m, triggernum_etrigger, etrigger_exception, trap_not_selected, trap_result_m;                                           // NTRIG * 2 m
     `ifdef S_SUPPORTED
-        cp_etrigger_s:           cross exec_mode_s, triggernum_etrigger, etrigger_exception, etrigger_code_s, trap_not_delegated, trap_selected, trap_result_m;         // NTRIG * S exceptions * 2 s
-        cp_etrigger_s_deleg:     cross exec_mode_s, triggernum_etrigger, etrigger_exception, etrigger_code_s_deleg, trap_delegated, trap_selected, trap_result_s;       // NTRIG * delegated S exceptions * 2 s
-        cp_etrigger_s_other:     cross exec_mode_s, triggernum_etrigger, etrigger_exception, trap_not_delegated, trap_not_selected, trap_result_m;                       // NTRIG * 2 s
+        cp_etrigger_s:           cross priv_mode_s, triggernum_etrigger, etrigger_exception, etrigger_code_s, trap_not_delegated, trap_selected, trap_result_m;         // NTRIG * S exceptions * 2 s
+        cp_etrigger_s_deleg:     cross priv_mode_s, triggernum_etrigger, etrigger_exception, etrigger_code_s_deleg, trap_delegated, trap_selected, trap_result_s;       // NTRIG * delegated S exceptions * 2 s
+        cp_etrigger_s_other:     cross priv_mode_s, triggernum_etrigger, etrigger_exception, trap_not_delegated, trap_not_selected, trap_result_m;                       // NTRIG * 2 s
         `ifdef U_SUPPORTED
-            cp_etrigger_u:       cross exec_mode_u, triggernum_etrigger, etrigger_exception, etrigger_code_u, trap_not_delegated, trap_selected, trap_result_m;     // NTRIG * U exceptions * 2 u
-            cp_etrigger_u_deleg: cross exec_mode_u, triggernum_etrigger, etrigger_exception, etrigger_code_u_deleg, trap_delegated, trap_selected, trap_result_s;   // NTRIG * delegated U exceptions * 2 u
-            cp_etrigger_u_other: cross exec_mode_u, triggernum_etrigger, etrigger_exception, trap_not_delegated, trap_not_selected, trap_result_m;                   // NTRIG * 2 u
+            cp_etrigger_u:       cross priv_mode_u, triggernum_etrigger, etrigger_exception, etrigger_code_u, trap_not_delegated, trap_selected, trap_result_m;     // NTRIG * U exceptions * 2 u
+            cp_etrigger_u_deleg: cross priv_mode_u, triggernum_etrigger, etrigger_exception, etrigger_code_u_deleg, trap_delegated, trap_selected, trap_result_s;   // NTRIG * delegated U exceptions * 2 u
+            cp_etrigger_u_other: cross priv_mode_u, triggernum_etrigger, etrigger_exception, trap_not_delegated, trap_not_selected, trap_result_m;                   // NTRIG * 2 u
         `endif
     `endif
     `endif
@@ -478,18 +489,18 @@ covergroup SdtrigSm_textra_cg with function sample(ins_t ins);
         `endif
         `ifdef SDTRIG_TEXTRA_MCONTEXT
             `ifdef SDTRIG_ITRIGGER_ANY
-                cp_textra_itrigger_mcontext: cross exec_mode_s, triggernum_itrigger, itrigger_interrupt, trap_delegated, trap_selected, textra_trap_mcontext;     // NTRIG * 2
+                cp_textra_itrigger_mcontext: cross priv_mode_s, triggernum_itrigger, itrigger_interrupt, trap_delegated, trap_selected, textra_trap_mcontext;     // NTRIG * 2
             `endif
             `ifdef SDTRIG_ETRIGGER_ANY
-                cp_textra_etrigger_mcontext: cross exec_mode_s, triggernum_etrigger, etrigger_exception, trap_delegated, trap_selected, textra_trap_mcontext;     // NTRIG * 2
+                cp_textra_etrigger_mcontext: cross priv_mode_s, triggernum_etrigger, etrigger_exception, trap_delegated, trap_selected, textra_trap_mcontext;     // NTRIG * 2
             `endif
         `endif
         `ifdef SDTRIG_TEXTRA_SCONTEXT
             `ifdef SDTRIG_ITRIGGER_ANY
-                cp_textra_itrigger_scontext: cross exec_mode_s, triggernum_itrigger, itrigger_interrupt, trap_delegated, trap_selected, textra_trap_scontext;     // NTRIG * 2
+                cp_textra_itrigger_scontext: cross priv_mode_s, triggernum_itrigger, itrigger_interrupt, trap_delegated, trap_selected, textra_trap_scontext;     // NTRIG * 2
             `endif
             `ifdef SDTRIG_ETRIGGER_ANY
-                cp_textra_etrigger_scontext: cross exec_mode_s, triggernum_etrigger, etrigger_exception, trap_delegated, trap_selected, textra_trap_scontext;     // NTRIG * 2
+                cp_textra_etrigger_scontext: cross priv_mode_s, triggernum_etrigger, etrigger_exception, trap_delegated, trap_selected, textra_trap_scontext;     // NTRIG * 2
             `endif
         `endif
     `endif

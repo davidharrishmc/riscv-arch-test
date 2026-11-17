@@ -105,20 +105,6 @@ triggernum_etrigger: coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, 
     `ifdef UDB_SDTRIG_ETRIGGER_SUPPORTED_TRIGGERS_15 bins trigger_15 = {15}; `endif
 }
 `endif
-// the mode the instruction on this record runs in and a trap on it is taken from or, on an xRET, the mode it returns
-// to. A trigger that fires on the first instruction after the T-SBI return (SdtrigS/U) is logged on the xRET record.
-exec_mode_m: coverpoint sdtrig_trap_origin(ins) {
-    type_option.weight = 0;
-    bins M_mode = {2'd3};
-}
-exec_mode_s: coverpoint sdtrig_trap_origin(ins) {
-    type_option.weight = 0;
-    bins S_mode = {2'd1};
-}
-exec_mode_u: coverpoint sdtrig_trap_origin(ins) {
-    type_option.weight = 0;
-    bins U_mode = {2'd0};
-}
 csrr: coverpoint ins.current.insn {
     type_option.weight = 0;
     wildcard bins csrr = {CSRR};
