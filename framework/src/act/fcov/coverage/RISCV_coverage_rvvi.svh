@@ -27,6 +27,9 @@
 `endif
 
 riscvTraceData #(ILEN, XLEN, FLEN, VLEN) traceDataQ [(NHART-1):0][(RETIRE-1):0] [$:`NUM_RVVI_DATA];
+
+// The value the last CSR instruction to write each CSR wrote to it (get_csr_written)
+logic [(XLEN-1):0] csr_written [(NHART-1):0][4096];
 int mem_client;
 
 `include "coverage/RISCV_disasm_fallback.svh"
@@ -35,6 +38,8 @@ function void save_rvvi_data(bit trap, int hart, int issue, string disass);
   string inst_name = get_inst_name(trap, hart, issue, disass);
   riscvTraceData #(ILEN, XLEN, FLEN, VLEN) rvviData;
   bit [31:0] mask;
+  bit [11:0] csr_addr;
+  logic [(XLEN-1):0] csr_src;
   int idx;
   if (inst_name == "illegal") begin
     inst_name = disasm_fallback_vector(this.rvvi.insn[hart][issue]);
@@ -128,6 +133,23 @@ function void save_rvvi_data(bit trap, int hart, int issue, string disass);
   // Todo: CSR values should use the current values and only update the changed ones
   rvviData.csr = this.rvvi.csr[hart][issue];
   rvviData.csr_wb = this.rvvi.csr_wb[hart][issue];
+
+  // The value a CSR instruction writes, from its operands: rs1 or the immediate for csrrw, combined with the old value
+  // for csrrs and csrrc, which write only with a nonzero rs1 or immediate. A trace reports a CSR's readable value,
+  // which can differ from what was written (mepc[1] reads as 0 while IALIGN = 32) and can change without a write (an
+  // icount trigger counting down). In VS-mode and VU-mode, a supervisor CSR name accesses the VS CSR 0x100 above it.
+  if (rvviData.insn[6:0] == 7'b1110011 && rvviData.insn[13:12] != 2'b00 && !rvviData.trap &&
+      (rvviData.insn[13:12] == 2'b01 || rvviData.insn[19:15] != 0)) begin
+    csr_addr = rvviData.insn[31:20];
+    if (rvviData.mode_virt && csr_addr inside {12'h100, 12'h104, 12'h105, [12'h140:12'h144], 12'h14D, [12'h150:12'h157],
+                                              12'h15C, 12'h15D, 12'h180, 12'hDB0}) csr_addr += 12'h100;
+    csr_src = rvviData.insn[14] ? XLEN'(rvviData.insn[19:15]) : traceDataQ[hart][issue][0].x_wdata[rvviData.insn[19:15]];
+    case (rvviData.insn[13:12])
+      2'b01:   csr_written[hart][csr_addr] = csr_src;
+      2'b10:   csr_written[hart][csr_addr] = traceDataQ[hart][issue][0].csr[csr_addr] | csr_src;
+      default: csr_written[hart][csr_addr] = traceDataQ[hart][issue][0].csr[csr_addr] & ~csr_src;
+    endcase
+  end
 
   save_mem_data(rvviData, hart, disass, traceDataQ[hart][issue][0].x_wdata);
 

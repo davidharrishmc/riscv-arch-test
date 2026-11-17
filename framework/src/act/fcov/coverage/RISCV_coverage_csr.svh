@@ -62,6 +62,12 @@ function `XLEN_BITS get_csr_val(int hart, int issue, int prev, bit [11:0] addr);
   return traceDataQ[hart][issue][prev].csr[addr];
 endfunction
 
+// The value the last CSR instruction to write the CSR at addr wrote to it, from its operands: not changed by the hart
+// itself afterwards (an icount count) nor masked on reads (mepc[1] while IALIGN = 32)
+function `XLEN_BITS get_csr_written(int hart, bit [11:0] addr);
+  return csr_written[hart][addr];
+endfunction
+
 // Named field of the CSR at addr, shifted to bit 0
 function `XLEN_BITS get_csr_field(int hart, int issue, int prev, bit [11:0] addr, string field);
 

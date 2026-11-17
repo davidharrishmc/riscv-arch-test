@@ -24,7 +24,7 @@ PTW_STEP_PATTERN = re.compile(
     r"PTW: Step, (?:stage=(\S+), )?level=(\d+), pte=0x([0-9a-fA-F]+)(?:, pte_addr=0x([0-9a-fA-F]+))?"
 )
 PTW_END_PATTERN = re.compile(r"PTW: (?:Success|Failed|failed)(?:, .*final_ppn=0x([0-9a-fA-F]+))?")
-TRAP_PATTERN = re.compile(r"handling (exc|int)#(\S+) at priv \S+ \| tval=0x([0-9a-fA-F]+)")
+TRAP_PATTERN = re.compile(r"handling (exc|int)#(.+?) at priv \S+ \| tval=0x([0-9a-fA-F]+)")
 XRET_PATTERN = re.compile(r"ret-ing from \S+ to (\S+)")
 TLB_FLUSH_PATTERN = re.compile(r"(?:sfence|sinval|hfence|hinval)\.")
 SATP_PATTERN = re.compile(r"^CSR satp \(0x180\) (?:<-|->) 0x([0-9a-fA-F]+)")
