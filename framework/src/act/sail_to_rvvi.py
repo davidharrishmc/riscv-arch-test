@@ -99,6 +99,11 @@ def sailLog2Trace(inputLogFile: Path, outputTraceFile: Path) -> None:
     tlb_va: dict[int, tuple[int, int]] = {}  # virtual page -> (leaf PTE, level), for faults before memory
     translating = False
 
+    def data_translated(ev_mode: str) -> bool:
+        """Whether data accesses in ``ev_mode`` are translated; in M-mode only with mstatus.MPRV and MPP != M."""
+        mstatus = csr_state.get(MSTATUS, 0)
+        return translating and (ev_mode != "M" or (mstatus >> 17 & 1 == 1 and mstatus >> 11 & 3 != 3))
+
     def mem_record(bus: str, size: int, va: int, pa: int, **kv: str) -> str:
         pairs = " ".join(f"{k} {v}" for k, v in kv.items())
         return f"MEM {bus} {size} 0x{va:x} 0x{pa:x} {len(kv)}" + (f" {pairs}" if pairs else "")
@@ -258,7 +263,7 @@ def sailLog2Trace(inputLogFile: Path, outputTraceFile: Path) -> None:
                     fetch_pas.append((pa, size))
                 elif event is not None:
                     va = data_va if data_va is not None else pa
-                    if translating and event.mode != "M" and va >> 12 not in walked_pages and pa >> 12 in tlb:
+                    if data_translated(event.mode) and va >> 12 not in walked_pages and pa >> 12 in tlb:
                         pte, level = tlb[pa >> 12]
                         event.mems.append(mem_record("D", pte_bytes, va, 0, PTE=f"0x{pte:x}", PT=PAGE_TYPE[level]))
                         walked_pages.add(va >> 12)
@@ -275,7 +280,7 @@ def sailLog2Trace(inputLogFile: Path, outputTraceFile: Path) -> None:
                 fetch_pas.clear()
                 memory_fault = kind == "exc" and any(k in cause for k in ("access-fault", "page-fault", "misaligned"))
                 if memory_fault and not cause.startswith("fetch-") and event is not None:
-                    if tval >> 12 not in walked_pages and tval >> 12 in tlb_va and event.mode != "M":
+                    if tval >> 12 not in walked_pages and tval >> 12 in tlb_va and data_translated(event.mode):
                         pte, level = tlb_va[tval >> 12]
                         event.mems.append(mem_record("D", pte_bytes, tval, 0, PTE=f"0x{pte:x}", PT=PAGE_TYPE[level]))
                     event.mems.append(mem_record("D", 0, tval, 0, FAULTED="1"))
