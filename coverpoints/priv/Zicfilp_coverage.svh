@@ -549,11 +549,11 @@ covergroup Zicfilp_H_cg with function sample(ins_t ins);
     // when executed in VS-mode and from sstatus.SPELP when executed in HS-mode, only if the LPE of the
     // new mode (henvcfg.LPE for VS-mode, senvcfg.LPE for VU-mode) is 1. The test gives the other SPELP
     // the opposite value, so using the wrong one changes the outcome. Each mode writes SPP and SPELP
-    // through sstatus, so both crosses read them from the sstatus record; in VS-mode that is vsstatus.
+    // through sstatus, which in VS-mode is vsstatus.
     sret: coverpoint ins.current.insn {
         bins sret = {SRET};
     }
-    vs_new_mode: coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_SSTATUS, "spp")[0] {}
+    vs_new_mode: coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_VSSTATUS, "spp")[0] {}
     hs_new_mode: coverpoint 2 * get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_HSTATUS, "spv") +
                             get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_SSTATUS, "spp") {
         bins vu = {2};  // hstatus.SPV = 1, sstatus.SPP = 0
@@ -562,12 +562,13 @@ covergroup Zicfilp_H_cg with function sample(ins_t ins);
     henvcfg_lpe_before: coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_HENVCFG, "lpe")[0] {}
     senvcfg_lpe_before: coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_SENVCFG, "lpe")[0] {}
     sstatus_spelp: coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_SSTATUS, "spelp")[0] {}
+    vsstatus_spelp: coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_VSSTATUS, "spelp")[0] {}
     // Checked in HS-mode, where vsstatus has its own record
     vsstatus_spelp_differs: coverpoint (get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_VSSTATUS, "spelp") !=
                                         get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_SSTATUS, "spelp")) {
         bins differs = {1'b1};
     }
-    cp_vs_sret_spelp: cross priv_mode_vs, sret, vs_new_mode, henvcfg_lpe_before, senvcfg_lpe_before, sstatus_spelp;
+    cp_vs_sret_spelp: cross priv_mode_vs, sret, vs_new_mode, henvcfg_lpe_before, senvcfg_lpe_before, vsstatus_spelp;
     cp_hs_sret_spelp: cross priv_mode_hs, sret, hs_new_mode, henvcfg_lpe_before, senvcfg_lpe_before, sstatus_spelp,
                             vsstatus_spelp_differs;
 

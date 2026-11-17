@@ -622,17 +622,21 @@ covergroup H_inst_cg with function sample(ins_t ins);
     cp_vtvm_satp:        cross priv_mode_vs, satp_access, satp, hstatus_vtvm;
     cp_vtvm_hfence_vvma: cross priv_mode_hs, hfence_vvma, hstatus_vtvm;
 
-    // In VS-mode the trace reports vsstatus as sstatus
     old_spp : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_SSTATUS, "spp")[0] {
     }
     old_spie : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_SSTATUS, "spie")[0] {
+    }
+    // In VS-mode, sret uses vsstatus
+    old_vs_spp : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_VSSTATUS, "spp")[0] {
+    }
+    old_vs_spie : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_VSSTATUS, "spie")[0] {
     }
     old_spv : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_HSTATUS, "spv")[0] {
     }
     old_vtsr : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_HSTATUS, "vtsr")[0] {
     }
     cp_sret_hs:  cross priv_mode_hs, sret, old_spp, old_spie, old_spv;
-    cp_sret_vs:  cross priv_mode_vs, sret, old_spp, old_spie, old_vtsr;
+    cp_sret_vs:  cross priv_mode_vs, sret, old_vs_spp, old_vs_spie, old_vtsr;
 endgroup
 
 // Counter access and htimedelta in HS, VS, U and VU modes.

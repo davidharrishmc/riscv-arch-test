@@ -620,7 +620,8 @@ covergroup Sm_mcsr_cg with function sample(ins_t ins);
     cp_misa_dependencies :      cross priv_mode_m, csrrw, misa, misa_dependencies;
     cp_misa_clear_c :           cross priv_mode_m, csrc, misa_c_0, pc_1;
 
-    // mepc[1] is masked on reads, including mret's, while misa.C = 0 makes IALIGN = 32
+    // mepc[1] is masked on reads, including mret's, while misa.C = 0 makes IALIGN = 32, but keeps the value the test
+    // wrote, so the bit is sampled as written
     // Only on harts with Zca whose misa.C is writable, so that IALIGN can change
     `ifdef ZCA_SUPPORTED
         `ifdef UDB_MUTABLE_MISA_C
@@ -633,7 +634,7 @@ covergroup Sm_mcsr_cg with function sample(ins_t ins);
             misa_c_off : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_MISA, "exts")[2] {
                 bins off = {1'b0};
             }
-            mepc_bit1 : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_MEPC)[1] {
+            mepc_bit1 : coverpoint get_csr_written(ins.hart, CSR_MEPC)[1] {
                 bins set = {1'b1};
             }
             cp_mepc_ialign32_read :  cross priv_mode_m, csrr_mepc, misa_c_off, mepc_bit1;
@@ -646,7 +647,7 @@ covergroup Sm_mcsr_cg with function sample(ins_t ins);
                 sret_insn : coverpoint ins.current.insn {
                     wildcard bins sret = {SRET};
                 }
-                sepc_bit1 : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_SEPC)[1] {
+                sepc_bit1 : coverpoint get_csr_written(ins.hart, CSR_SEPC)[1] {
                     bins set = {1'b1};
                 }
                 cp_sepc_ialign32_read :  cross priv_mode_m_s, csrr_sepc, misa_c_off, sepc_bit1;
@@ -2130,7 +2131,7 @@ covergroup Sm_H_mcsr_cg with function sample(ins_t ins);
             csrr_vsepc : coverpoint ins.current.insn {
                 wildcard bins csrr_vsepc = {CSRRS} iff (ins.current.insn[31:20] == CSR_VSEPC && ins.current.insn[19:15] == 0);
             }
-            // In VS-mode the trace records vsepc accesses under sepc
+            // In VS-mode, csrr sepc reads vsepc
             csrr_sepc : coverpoint ins.current.insn {
                 wildcard bins csrr_sepc = {CSRRS} iff (ins.current.insn[31:20] == CSR_SEPC && ins.current.insn[19:15] == 0);
             }
@@ -2140,15 +2141,12 @@ covergroup Sm_H_mcsr_cg with function sample(ins_t ins);
             misa_c_off : coverpoint get_csr_field(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_MISA, "exts")[2] {
                 bins off = {1'b0};
             }
-            vsepc_bit1 : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_VSEPC)[1] {
-                bins set = {1'b1};
-            }
-            sepc_bit1 : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, CSR_SEPC)[1] {
+            vsepc_bit1 : coverpoint get_csr_written(ins.hart, CSR_VSEPC)[1] {
                 bins set = {1'b1};
             }
             cp_vsepc_ialign32_read :    cross priv_mode_m_s, csrr_vsepc,  misa_c_off, vsepc_bit1;
-            cp_vsepc_ialign32_vs_read : cross priv_mode_vs, csrr_sepc, misa_c_off, sepc_bit1;
-            cp_vsepc_ialign32_sret :    cross priv_mode_vs, sret_insn, misa_c_off, sepc_bit1;
+            cp_vsepc_ialign32_vs_read : cross priv_mode_vs, csrr_sepc, misa_c_off, vsepc_bit1;
+            cp_vsepc_ialign32_sret :    cross priv_mode_vs, sret_insn, misa_c_off, vsepc_bit1;
         `endif
     `endif
 endgroup
